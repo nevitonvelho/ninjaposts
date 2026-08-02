@@ -8,6 +8,17 @@ import type { CreativeBrief, GenerationInput } from '../../../shared/types/gener
  * do produto, e é o que mais vai mudar com o tempo. Poder ler o prompt inteiro
  * num arquivo só — sem caçar concatenação espalhada por três módulos — é o que
  * torna *prompt tuning* possível depois, com os dados reais de `meta.promptUsed`.
+ *
+ * ---
+ *
+ * **O prompt de imagem é escrito em português.**
+ *
+ * Isto contraria a intuição comum de que modelo de imagem responde melhor em
+ * inglês, e a escolha vem de evidência, não de teoria: a peça que serve de
+ * referência para este produto foi gerada com um prompt inteiramente em pt-BR e
+ * saiu com tipografia impecável. Faz sentido — o texto que a arte precisa
+ * **grafar** é português, e pedir em inglês adiciona uma tradução no meio do
+ * caminho justamente onde o erro dói mais.
  */
 
 function formatPrice(cents: number): string {
@@ -15,69 +26,32 @@ function formatPrice(cents: number): string {
 }
 
 /**
- * Anatomia de um anúncio de conversão, zona por zona.
+ * Qualidade e realismo — o bloco que combate o aspecto de imagem gerada.
  *
- * Existe porque pedir "composição, enquadramento, iluminação" produz uma cena,
- * não uma peça: o modelo entrega uma foto bonita e o texto acaba jogado por
- * cima. Anúncio é **diagramação** — logo num canto, título dominante, coluna de
- * itens, caixa de preço, barra de CTA, rodapé — e isso precisa ser pedido.
- *
- * Em inglês para ser aproveitada direto no `layoutPlan`, que vai para o modelo
- * de imagem. Não é camisa de força: o briefing escolhe as zonas que fazem
- * sentido para o formato e a oferta — um story não comporta o mesmo que um
- * feed quadrado.
+ * Sem direção explícita o modelo assume render 3D, e é daí que vem o produto
+ * "irrealista": liso demais, cor chapada, brilho de plástico.
  */
-const AD_ANATOMY = [
-  'brand logo — small, in a top corner, generous clear space, never stretched or recoloured',
-  'headline — the largest type on the piece, heavy condensed sans, one to three words',
-  'subheadline — a single short supporting line under the headline, one word accented in the brand colour',
-  'item list — a vertical column down one side, one short line per item, thin rules between them, small line icons',
-  'hero product — the photographic centrepiece, the largest object, slightly off centre',
-  'price block — an outlined or filled box, the second largest type, small currency symbol and a huge number',
-  'call to action — a bar or pill with strong contrast against the background',
-  'footer — a discreet strip with two or three very short trust badges',
-]
+const QUALIDADE = [
+  'Fotografia hiper-realista, de campanha publicitária.',
+  'Iluminação cinematográfica, reflexos naturais, sombras suaves.',
+  'Texturas extremamente detalhadas.',
+  'Sem aparência de imagem gerada por IA. Sem ilustração, sem desenho, sem render 3D.',
+  'Sem poluição visual, sem excesso de elementos.',
+].join('\n')
 
 /**
- * Direção de fotografia publicitária.
+ * O que nunca pode aparecer. Vai sempre, somado ao negativo do briefing.
  *
- * Sem isto o modelo assume render 3D, e é daí que vem o aspecto plástico: o
- * produto sai liso demais, com cor chapada e brilho de material sintético.
- * Nomear câmera, lente e esquema de luz é o que puxa o resultado para o
- * repertório de fotografia real.
+ * O último grupo não é estético: telefone, endereço ou @ inventados numa peça
+ * que o dono vai publicar mandam o cliente dele para o contato de outra pessoa.
  */
-const PHOTO_REALISM = [
-  'shot on a full-frame camera, 85mm lens at f/2.8, shallow depth of field',
-  'studio strobes: warm key light, cool rim light separating the subject from the background',
-  'natural specular highlights, real surface texture, visible crumb and grain, condensation only where it belongs',
-  'graded like a commercial campaign — rich but never oversaturated',
+const NUNCA = [
+  'texto com erro de grafia, letras embaralhadas, palavra duplicada ou sem sentido',
+  'tipografia deformada ou derretida',
+  'marca d\'água',
+  'dedos, membros ou objetos flutuantes a mais',
+  'telefone, endereço, site ou perfil inventados',
 ].join('; ')
-
-/**
- * O que nunca pode aparecer.
- *
- * Vai **sempre**, somado ao negativo que o modelo de texto escreve. Deixar a
- * lista inteiramente a cargo do modelo é apostar que ele lembre de tudo em toda
- * geração, e ele não lembra.
- *
- * O último grupo é o mais importante e não é estético: telefone, endereço, site
- * ou @ inventados numa peça que o dono vai publicar mandam cliente para o
- * contato de outra pessoa. É o pior defeito que este produto pode ter — pior
- * que arte feia, porque arte feia ninguém publica.
- */
-const ANTI_AI = [
-  'plastic CGI sheen',
-  'over-sharpened HDR',
-  'waxy or artificial-looking food',
-  'warped or melted typography',
-  'misspelled, duplicated or gibberish lettering',
-  'extra fingers, limbs or floating objects',
-  'watermark',
-  'invented phone numbers',
-  'invented addresses',
-  'invented website URLs',
-  'invented social media handles',
-].join(', ')
 
 /** Linhas "campo: valor", omitindo o que o usuário não preencheu. */
 function briefFacts(input: GenerationInput): string {
@@ -105,14 +79,7 @@ function briefFacts(input: GenerationInput): string {
   return lines.join('\n')
 }
 
-/**
- * Instrução do briefing criativo.
- *
- * A regra que mais importa está no fim: **o modelo de texto não escreve o
- * prompt de imagem em português**. Modelos de imagem respondem
- * significativamente melhor a instrução em inglês, mas legenda e hashtags
- * precisam sair em português do Brasil — são o que o usuário publica.
- */
+/** Instrução do briefing criativo. */
 export function buildBriefInstructions(input: GenerationInput): string {
   const style = STYLES[input.style]
   const format = FORMATS[input.format]
@@ -120,54 +87,58 @@ export function buildBriefInstructions(input: GenerationInput): string {
   const hashtagLimit = Math.max(...input.networks.map(n => NETWORKS[n].hashtagLimit))
 
   return [
-    'Você é diretor de arte premiado, especializado em campanhas de alta conversão',
-    'para pequenos negócios brasileiros. Seu trabalho é indistinguível do de uma',
-    'agência: diagramação em grid, hierarquia impecável, muito espaço negativo.',
+    'Você é diretor de arte premiado, especializado em campanhas publicitárias',
+    'para pequenos negócios brasileiros.',
     '',
-    'A partir dos dados abaixo, produza o briefing criativo de UM post para redes sociais.',
+    'A partir dos dados abaixo, produza o briefing de UM post para redes sociais.',
     '',
     briefFacts(input),
     '',
-    'Regras:',
-    `- "imagePrompt": EM INGLÊS, a cena e a direção de arte — materiais, atmosfera, textura de fundo, profundidade. Incorpore: ${style.promptFragment}.`,
+    'Regras — responda TUDO em português do Brasil:',
+    `- "imagePrompt": a cena e a direção de arte — fundo, atmosfera, materiais, luz, ângulo do produto. Incorpore: ${style.promptFragment}.`,
     '',
-    '- "layoutPlan": EM INGLÊS, a DIAGRAMAÇÃO da peça, zona por zona: onde cada bloco'
-    + ' vive e que tamanho ocupa em relação aos outros. Este é o campo que transforma'
-    + ' uma foto num anúncio — descreva posição, não sentimento. Escolha as zonas que'
-    + ' fazem sentido para o formato e a oferta, deste repertório:',
-    `  - ${AD_ANATOMY.join('\n  - ')}`,
-    `  A peça é ${format.label} (${format.ratio}); componha para essa proporção.`,
+    '- "layoutPlan": a diagramação, em 2 ou 3 frases. Onde fica a logo, o título, o'
+    + ' produto, o preço e o CTA, e que tamanho cada um ocupa em relação aos outros.'
+    + ` A peça é ${format.label} (${format.ratio}). O produto deve dominar a composição.`,
     '',
-    '- "photography": EM INGLÊS, a direção de fotografia do produto. Se o produto for'
-    + ' comida ou bebida, especifique fotografia publicitária de alimento — vapor,'
-    + ' brilho de gordura, frescor, corte que mostra as camadas. Se não for, a direção'
-    + ' equivalente para o tipo de produto.',
+    '- "photography": a direção de fotografia do produto. Se for comida ou bebida,'
+    + ' descreva o que faz dar fome — vapor, brilho de gordura, queijo derretendo,'
+    + ' gotas de condensação, camadas visíveis no corte.',
+    '',
+    '- "productIncludes": os ingredientes ou componentes que o produto tem, um por'
+    + ' item, tirados do nome e dos detalhes informados. Se o cliente não detalhou,'
+    + ' use a composição clássica do produto no Brasil — sem inventar sofisticação.',
+    '',
+    '- "productExcludes": o que NÃO pode aparecer no produto. Liste os acompanhamentos'
+    + ' que um modelo de imagem costuma acrescentar sozinho e que **não** foram pedidos'
+    + ' — por exemplo bacon, cebola caramelizada, molho barbecue, ervas, ingrediente'
+    + ' gourmet. Esta lista é o que impede a arte de mostrar um produto que o cliente'
+    + ' não vende.',
     '',
     input.colors.length
-      ? `- "colorGuidance": EM INGLÊS, como usar a paleta ${input.colors.join(', ')} na peça, sem citar códigos hex.`
-      : '- "colorGuidance": EM INGLÊS, escolha uma paleta que combine com o estilo e o nicho e explique o uso.',
-    '- "negativePrompt": EM INGLÊS, o que evitar **nesta peça especificamente** (o resto já é tratado).',
-    `- "caption": legenda EM PORTUGUÊS DO BRASIL, no máximo ${captionLimit} caracteres, tom próximo do público, com emojis usados com moderação.`,
+      ? `- "colorGuidance": como usar a paleta ${input.colors.join(', ')} na peça.`
+      : '- "colorGuidance": escolha uma paleta que combine com o estilo e o nicho e explique o uso.',
+    '- "negativePrompt": o que evitar nesta peça especificamente.',
+    `- "caption": legenda para publicar, no máximo ${captionLimit} caracteres, tom próximo do público, emojis com moderação.`,
     hashtagLimit > 0
-      ? `- "hashtags": entre 8 e ${Math.min(15, hashtagLimit)} hashtags em português, misturando alcance amplo e nicho, sem o símbolo "#".`
+      ? `- "hashtags": entre 8 e ${Math.min(15, hashtagLimit)} hashtags, misturando alcance amplo e nicho, sem o símbolo "#".`
       : '- "hashtags": array vazio — a rede escolhida não usa hashtags.',
-    '- "altText": descrição objetiva da imagem EM PORTUGUÊS, para acessibilidade.',
+    '- "altText": descrição objetiva da imagem, para acessibilidade.',
     '',
-    '- "textOverlay": os textos exatos que aparecem NA ARTE, EM PORTUGUÊS. Cada campo é'
-    + ' uma zona do layout, e texto curto é o que sai legível — seja implacável:',
+    '- "textOverlay": os textos exatos que aparecem NA ARTE. Texto curto é o que sai'
+    + ' legível — seja implacável:',
     '  - "headline": obrigatório, no máximo 3 palavras. É o maior tipo da peça.',
     '  - "subheadline": uma linha curta de apoio, ou null.',
-    '  - "items": as partes do combo/pacote, uma por linha, no máximo 4, cada uma com'
-    + ' até 4 palavras. Array vazio se a oferta não for composta.',
+    '  - "items": as partes do combo/pacote, no máximo 3, cada uma com até 4 palavras.'
+    + ' Array vazio se a oferta não for composta.',
     input.priceCents !== null
       ? `  - "price": exatamente "${formatPrice(input.priceCents)}".`
       : '  - "price": null — este post não mostra preço.',
     '  - "promotion": o selo da promoção, no máximo 4 palavras, ou null.',
     '  - "cta": no máximo 4 palavras, ou null.',
     '  - "contact": telefone, WhatsApp ou endereço APENAS se aparecer literalmente nos'
-    + ' dados acima. Caso contrário, null. NUNCA invente um número, endereço, site ou @:'
-    + ' o dono vai publicar esta peça, e um contato falso manda o cliente dele para'
-    + ' outro lugar.',
+    + ' dados acima. Caso contrário, null. NUNCA invente: o dono vai publicar esta peça,'
+    + ' e um contato falso manda o cliente dele para outro lugar.',
     '',
     '- Nada de promessa enganosa, superlativo vazio ou informação que não veio dos dados.',
   ].join('\n')
@@ -183,6 +154,8 @@ export const BRIEF_SCHEMA = {
     'imagePrompt',
     'layoutPlan',
     'photography',
+    'productIncludes',
+    'productExcludes',
     'negativePrompt',
     'caption',
     'hashtags',
@@ -194,6 +167,8 @@ export const BRIEF_SCHEMA = {
     imagePrompt: { type: 'string' },
     layoutPlan: { type: 'string' },
     photography: { type: 'string' },
+    productIncludes: { type: 'array', items: { type: 'string' } },
+    productExcludes: { type: 'array', items: { type: 'string' } },
     negativePrompt: { type: 'string' },
     caption: { type: 'string' },
     hashtags: { type: 'array', items: { type: 'string' } },
@@ -217,101 +192,77 @@ export const BRIEF_SCHEMA = {
 } as const
 
 /**
- * Prompt da 2ª passada — integrar a logo na arte já pronta.
- *
- * Curto de propósito. A arte já existe e a única tarefa é encaixar a marca; um
- * prompt longo aqui convidaria o modelo a reinterpretar a cena inteira, que é
- * exatamente o que `input_fidelity: 'high'` está tentando impedir.
- *
- * As duas frases finais carregam o peso: preservar a forma exata da marca, e
- * não mexer em mais nada.
- */
-export function buildLogoIntegrationPrompt(): string {
-  return [
-    'The first image is a finished advertising creative with a deliberately clean,',
-    'uncluttered area in its top-left corner. The second image is the brand logo.',
-    '',
-    'Place the logo into that reserved corner so it belongs to the scene — picking up the',
-    'ambient light, the surface texture and any perspective already present there, as a',
-    'real printed or applied mark would.',
-    '',
-    'Preserve the logo exactly: same shapes, same proportions, same colours, same lettering.',
-    'Do not redraw, restyle, translate or reletter it. Change nothing else in the artwork —',
-    'keep the existing composition, product, typography and colours untouched.',
-  ].join('\n')
-}
-
-/**
  * Prompt final da imagem.
  *
- * Montado em **seções rotuladas**, e não num parágrafo corrido: o modelo trata
- * cada rótulo como um compartimento, e direção de arte deixa de competir com
- * tipografia pela mesma atenção.
+ * Modelado numa peça que comprovadamente funcionou: mesmo esqueleto, mesma
+ * ordem, mesmo idioma. As duas seções que mais mudam o resultado são as menos
+ * óbvias:
  *
- * No modo `ai` (v1) o texto é renderizado pelo próprio modelo. Cada string sai
- * **amarrada à sua zona** — string curta com endereço erra muito menos que uma
- * lista solta —, entre aspas e com instrução de grafia exata. E o prompt fecha
- * proibindo qualquer texto além dos listados: sem isso o modelo preenche o
- * espaço vazio com letra inventada, que é a origem do rabisco ilegível.
+ * - **Produto.** A lista "NÃO adicionar" pesa mais que a lista "contém": dizer
+ *   que o lanche tem alface não impede o bacon de aparecer; dizer "sem bacon"
+ *   impede. Sem ela, o modelo enfeita, e a arte mostra um produto que o cliente
+ *   não vende.
+ * - **Textos.** Vão em bloco corrido, na ordem de leitura, e não amarrados a
+ *   rótulos de zona. Cada rótulo a mais é uma instrução a mais competindo com a
+ *   tarefa de grafar as palavras corretamente.
  */
 export function buildImagePrompt(brief: CreativeBrief, input: GenerationInput): string {
   const format = FORMATS[input.format]
-  const sections: string[] = [
-    // Só a proporção: `format.label` é rótulo de UI em português, e português
-    // solto no meio de um prompt em inglês só adiciona ruído.
-    `FORMAT: ${format.ratio} advertising creative for social media.`,
-    `ART DIRECTION: ${brief.imagePrompt}`,
-    `LAYOUT: ${brief.layoutPlan}`,
-    // Em duas linhas: o modelo escreve a direção do produto, e a técnica fixa
-    // entra separada. Emendar as duas produzia frase quebrada no meio.
-    `PHOTOGRAPHY: ${brief.photography}\nTechnical direction: ${PHOTO_REALISM}.`,
-    `COLOR: ${brief.colorGuidance}`,
+  const partes: string[] = [
+    `Você é um diretor de arte premiado especializado em campanhas publicitárias para ${input.niche}.`,
+    `Crie uma arte para redes sociais em formato ${format.ratio}.`,
+    'A arte deve parecer produzida por uma agência profissional, com acabamento premium.',
+    '',
+    `CENA:\n${brief.imagePrompt}`,
+    '',
+    `CORES:\n${brief.colorGuidance}`,
+    '',
+    `LAYOUT:\n${brief.layoutPlan}`,
   ]
+
+  const produto: string[] = [`PRODUTO: ${input.product}`, brief.photography]
+  if (brief.productIncludes.length) {
+    produto.push(`O produto contém APENAS: ${brief.productIncludes.join(', ')}.`)
+  }
+  if (brief.productExcludes.length) {
+    produto.push(`NÃO adicionar de forma alguma: ${brief.productExcludes.join(', ')}.`)
+  }
+  partes.push('', produto.join('\n'))
 
   if (input.renderMode === 'ai') {
     const { headline, subheadline, price, promotion, cta, items, contact } = brief.textOverlay
 
-    const zones: string[] = [`headline zone — "${headline}"`]
-    if (subheadline) zones.push(`subheadline, directly under the headline — "${subheadline}"`)
-    if (items.length) {
-      zones.push(`item list column, one line each — ${items.map(i => `"${i}"`).join(', ')}`)
-    }
-    if (price) zones.push(`price block — "${price}"`)
-    if (promotion) zones.push(`promotion badge — "${promotion}"`)
-    if (cta) zones.push(`call-to-action bar — "${cta}"`)
-    if (contact) zones.push(`contact bar, next to the call to action — "${contact}"`)
+    const textos = [headline, subheadline, ...items, promotion, price, cta, contact]
+      .filter((t): t is string => Boolean(t))
 
-    sections.push(
-      'TYPOGRAPHY: render the following Brazilian Portuguese text, spelled character for'
-      + ' character exactly as written, with clean professional kerning and clear'
-      + ` hierarchy:\n- ${zones.join('\n- ')}\n`
-      + 'Render NO other text, letters, numbers or symbols anywhere in the image.',
+    partes.push(
+      '',
+      'TEXTOS — escreva exatamente estas palavras na arte, em português do Brasil,'
+      + ' com grafia idêntica e tipografia moderna de alto contraste:',
+      textos.join('\n'),
+      'Não escreva nenhum outro texto, letra ou número na imagem.',
     )
   } else {
-    // Modo `hybrid`: a IA entrega a cena limpa e o texto é composto depois.
-    sections.push(
-      'TYPOGRAPHY: render no text, letters or numbers at all. Leave clean, uncluttered'
-      + ' negative space in the zones described above, where typography will be composited later.',
+    partes.push(
+      '',
+      'TEXTOS: não escreva texto, letra ou número algum. Deixe espaço negativo limpo'
+      + ' onde a tipografia será composta depois.',
     )
   }
 
   if (input.logoPath) {
-    /**
-     * A logo não vai para o modelo — é composta com `sharp` depois. O que o
-     * prompt faz é **reservar o lugar** dela.
-     *
-     * A proibição explícita não é redundante: sem ela o modelo desenha uma
-     * marca inventada no canto, e a composição acaba empilhando duas logos.
-     */
-    sections.push(
-      'BRAND: leave the top-left corner clean and uncluttered — flat, low-detail,'
-      + ' even-toned background with no important subject matter — as reserved space'
-      + ' where the real brand logo will be placed afterwards.'
-      + ' Do NOT draw, invent or letter any logo, emblem, wordmark or brand name anywhere.',
+    // A logo é composta com `sharp` depois. Aqui só se reserva o lugar — e se
+    // proíbe o modelo de inventar uma marca, que ele faz se o canto ficar vazio.
+    partes.push(
+      '',
+      'LOGO: deixe o canto superior esquerdo limpo, de fundo liso e sem elemento'
+      + ' importante, reservado para a logo real da marca ser aplicada depois.'
+      + ' Não desenhe, não invente e não escreva nenhuma logo, emblema ou nome de marca.',
     )
   }
 
-  sections.push(`AVOID: ${brief.negativePrompt}, ${ANTI_AI}.`)
+  partes.push('', `QUALIDADE:\n${QUALIDADE}`)
+  partes.push('', `EVITAR: ${brief.negativePrompt}; ${NUNCA}.`)
 
-  return sections.filter(Boolean).join('\n\n')
+  return partes.join('\n')
 }

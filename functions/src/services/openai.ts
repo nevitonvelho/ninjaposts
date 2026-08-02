@@ -2,12 +2,7 @@ import OpenAI from 'openai'
 import { FORMATS } from '../../../shared/constants'
 import type { CreativeBrief, GenerationInput } from '../../../shared/types/generation'
 import { briefModel, imageModel, openaiApiKey } from '../lib/env'
-import {
-  BRIEF_SCHEMA,
-  buildBriefInstructions,
-  buildImagePrompt,
-  buildLogoIntegrationPrompt,
-} from './prompt'
+import { BRIEF_SCHEMA, buildBriefInstructions, buildImagePrompt } from './prompt'
 import { estimateImageCost, estimateTextCost } from './cost'
 
 /**
@@ -176,36 +171,25 @@ export interface RenderResult {
   logoIntegrated: boolean
 }
 
-/** `toFile` da própria SDK — evita montar `FormData` na mão. */
-async function toFile(buffer: Buffer, name: string, type: string) {
-  const { toFile: openaiToFile } = await import('openai')
-  return openaiToFile(buffer, name, { type })
-}
-
 /**
- * Etapa RENDER — Images API, em duas passadas quando há logo.
+ * Etapa RENDER — `images.generate`, uma passada só.
  *
- * **1ª — `images.generate`.** Texto puro, sem imagem de entrada, que é o que
- * entrega a melhor composição. O prompt reserva um canto limpo para a marca.
+ * **Nunca `images.edit`**, e por dois motivos distintos, ambos aprendidos caro:
  *
- * **2ª — `images.edit` com `[arte, logo]`.** Só aqui a logo entra, e entra
- * recebendo a luz e a textura da cena. Esta é a forma correta de usar o
- * endpoint: a **arte** é a tela e a logo é referência. Mandar só a logo, como
- * era antes, fazia o modelo tratá-la como tela e ancorava a composição inteira
- * numa imagem de 200 pixels — a causa provável da queda de qualidade.
+ * 1. Mandando só a logo, o modelo a trata como *tela* e ancora a composição
+ *    inteira numa imagem de 200 pixels. A qualidade desaba.
+ * 2. Mandando `[arte, logo]` — que é o uso correto do endpoint — ele regenera a
+ *    imagem **inteira**, texto incluído. Ou seja, uma segunda chance de
+ *    embaralhar o português numa arte que já tinha saído certa. Erro de grafia
+ *    é o defeito nº 1 deste produto; não vale trocá-lo por logo com luz.
  *
- * `input_fidelity: 'high'` vale para as duas imagens: preserva o traço da marca
- * *e* impede a segunda passada de reescrever a arte que já ficou boa.
- *
- * A 2ª passada é **melhoria, não requisito**. Se falhar, a arte da 1ª já está
- * pronta e a logo vai por composição no `sharp`. Derrubar um job inteiro — com
- * estorno e espera — porque um realce não saiu seria trocar o produto pelo
- * acabamento.
+ * A logo entra por composição no `sharp`, chapada — que é, aliás, o que a peça
+ * de referência do próprio cliente faz no canto superior. Aqui ela nem chega:
+ * quem avisa o prompt para reservar o canto é `input.logoPath`.
  */
 export async function renderImage(
   input: GenerationInput,
   brief: CreativeBrief,
-  logo: Buffer | null,
 ): Promise<RenderResult> {
   const model = imageModel.value()
   const size = FORMATS[input.format].renderSize
@@ -238,48 +222,19 @@ export async function renderImage(
     throw classify(error)
   }
 
-  if (!logo) {
-    return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
-  }
-
-  const integrationPrompt = buildLogoIntegrationPrompt()
-
-  try {
-    const merged = await openai().images.edit({
-      model,
-      image: [
-        await toFile(art, 'arte.png', 'image/png'),
-        await toFile(logo, 'logo.png', 'image/png'),
-      ],
-      prompt: integrationPrompt,
-      size,
-      quality,
-      input_fidelity: 'high',
-    })
-
-    const first = merged.data?.[0]
-    if (!first?.b64_json) {
-      throw new Error('a integração da logo não devolveu imagem')
-    }
-
-    costUsd += estimateImageCost(size, quality)
-
-    return {
-      png: Buffer.from(first.b64_json, 'base64'),
-      promptUsed: `${prompt}\n\n--- 2ª passada (logo) ---\n${integrationPrompt}`,
-      revisedPrompt,
-      costUsd,
-      model,
-      logoIntegrated: true,
-    }
-  } catch (error) {
-    /**
-     * Sem `throw`: a arte da 1ª passada é entregável, e a logo ainda entra pelo
-     * `sharp`. O usuário recebe a peça em vez de um estorno.
-     */
-    console.warn('[worker] integração da logo falhou — caindo para composição com sharp:', error)
-
-    return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
-  }
+  /**
+   * A 2ª passada de integração da logo foi **removida**, e o motivo é caro de
+   * reaprender: `images.edit` regenera a imagem **inteira**, texto incluído.
+   * Ela dava uma segunda chance de embaralhar o português numa arte que já
+   * tinha saído correta — e erro de grafia é o defeito nº 1 relatado.
+   *
+   * A troca é consciente: perde-se a logo recebendo a luz da cena, ganha-se
+   * texto estável e metade do custo. A logo entra chapada, por composição no
+   * `sharp` — que, aliás, é o que a própria peça de referência faz no canto.
+   *
+   * Se voltar algum dia, que seja atrás de um tier pago e só em formatos sem
+   * texto pesado.
+   */
+  return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
 }
 

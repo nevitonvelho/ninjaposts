@@ -112,6 +112,19 @@ export interface TextOverlay {
 export interface CreativeBrief {
   imagePrompt: string
   /**
+   * O que o produto contém — e, crucialmente, o que ele **não** contém.
+   *
+   * Existe porque modelo de imagem enfeita por padrão: pede-se um X-Egg e vem
+   * bacon, cebola caramelizada e um molho âmbar que ninguém pediu. O resultado
+   * é uma foto de um produto que o cliente não vende, o que é pior do que uma
+   * foto feia — ele publica e alguém pede o que viu.
+   *
+   * A lista negativa carrega mais peso que a positiva: dizer "contém alface"
+   * não impede o bacon de aparecer, dizer "sem bacon" impede.
+   */
+  productIncludes: string[]
+  productExcludes: string[]
+  /**
    * Diagramação da peça, zona por zona, em inglês.
    *
    * É o campo que separa "foto bonita com texto por cima" de anúncio. Sem
