@@ -59,6 +59,24 @@ export default defineEventHandler(async (event) => {
 
   const provider = usePaymentProvider()
 
+  /**
+   * Rastro de entrada — uma linha por invocação.
+   *
+   * Sem isto, um evento que morre cedo não deixa nada no log, e o painel do
+   * host mostra só "status 0" sem dizer se o nosso código chegou a rodar. Uma
+   * linha barata na entrada é a diferença entre diagnosticar em um clique e
+   * ficar adivinhando.
+   *
+   * Registra **nomes de campo, nunca valores**: o corpo carrega e-mail, nome e
+   * CPF do comprador, e log de produção não é lugar para dado pessoal.
+   */
+  console.info(
+    `[webhook] recebido · provider=${provider.id} · ${rawBody.length} bytes`
+    + ` · assinatura=${signature ? 'presente' : 'AUSENTE'}`
+    + ` · ua=${getRequestHeader(event, 'user-agent') ?? '?'}`
+    + ` · campos=[${describeShape(rawBody)}]`,
+  )
+
   let normalized: NormalizedPurchaseEvent
   try {
     normalized = await provider.parseWebhook(rawBody, signature)
@@ -273,3 +291,28 @@ export default defineEventHandler(async (event) => {
     throw internalError(`processamento do webhook ${eventId}`, error)
   }
 })
+
+/**
+ * Descreve o formato do corpo sem revelar conteúdo.
+ *
+ * Devolve `order_id, Customer{email,full_name}, Product{product_id}` — nomes de
+ * campo e um nível de aninhamento. É o suficiente para descobrir que o gateway
+ * mudou `Customer` para `customer`, e insuficiente para vazar o CPF de alguém
+ * no log de produção.
+ */
+function describeShape(rawBody: string): string {
+  try {
+    const parsed: unknown = JSON.parse(rawBody)
+    if (!parsed || typeof parsed !== 'object') return typeof parsed
+
+    return Object.entries(parsed as Record<string, unknown>)
+      .map(([key, value]) =>
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? `${key}{${Object.keys(value as object).join(',')}}`
+          : key,
+      )
+      .join(', ')
+  } catch {
+    return 'corpo não é JSON'
+  }
+}
