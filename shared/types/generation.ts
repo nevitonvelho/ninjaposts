@@ -72,12 +72,34 @@ export interface GenerationInput {
 // Briefing criativo (saída estruturada do modelo de texto)
 // ---------------------------------------------------------------------------
 
-/** Textos que o modo `hybrid` compõe deterministicamente sobre a arte. */
+/**
+ * Textos que aparecem na arte — renderizados pelo modelo no modo `ai`,
+ * compostos com `sharp` no modo `hybrid`.
+ *
+ * Cada campo corresponde a **uma zona** da peça, e é isso que torna a
+ * tipografia previsível: string curta amarrada a um lugar erra muito menos que
+ * um bloco de texto solto no prompt.
+ */
 export interface TextOverlay {
   headline: string
+  /** Linha de apoio sob o título. Ex.: "Simples. Gostoso. Do jeito certo." */
+  subheadline: string | null
   price: string | null
   promotion: string | null
   cta: string | null
+  /**
+   * Itens do combo/pacote, um por linha, para a coluna lateral.
+   * Ex.: `['1 X-Egg', 'Batata pequena', '1 Coca-Cola 600ml']`.
+   */
+  items: string[]
+  /**
+   * Telefone, WhatsApp ou endereço para a barra de contato.
+   *
+   * **Só é preenchido quando o dado veio do usuário.** Um número inventado numa
+   * peça que o dono vai publicar é o pior defeito possível deste produto — pior
+   * que arte feia, porque manda cliente para o telefone de outra pessoa.
+   */
+  contact: string | null
 }
 
 /**
@@ -89,6 +111,21 @@ export interface TextOverlay {
  */
 export interface CreativeBrief {
   imagePrompt: string
+  /**
+   * Diagramação da peça, zona por zona, em inglês.
+   *
+   * É o campo que separa "foto bonita com texto por cima" de anúncio. Sem
+   * pedir posição explícita de logo, título, coluna de itens, caixa de preço e
+   * rodapé, o modelo entrega uma cena — que foi exatamente o que ele fazia.
+   */
+  layoutPlan: string
+  /**
+   * Direção de fotografia do produto, em inglês. Lente, luz, textura.
+   *
+   * Separado do `imagePrompt` porque é o que resolve o aspecto plástico: sem
+   * direção explícita, o modelo assume render 3D, não fotografia.
+   */
+  photography: string
   negativePrompt: string
   caption: string
   hashtags: string[]
@@ -118,6 +155,13 @@ export type GenerationErrorCode =
   | 'content_policy'
   | 'provider_error'
   | 'rate_limited'
+  /**
+   * Conta do provedor sem saldo — separado de `rate_limited` porque a OpenAI
+   * devolve 429 para os dois, e os desfechos são opostos: throttling passa
+   * sozinho, saldo zerado não passa nunca. Tratar como o mesmo caso faz o app
+   * mandar o usuário "tentar de novo em alguns minutos" para sempre.
+   */
+  | 'quota_exhausted'
   | 'invalid_input'
   | 'timeout'
   | 'internal'

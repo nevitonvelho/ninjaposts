@@ -164,6 +164,13 @@ function messageFor(code: ProviderError['code']): string {
       return 'O conteúdo pedido não passou na moderação. Ajuste a descrição e tente de novo — seus créditos foram devolvidos.'
     case 'rate_limited':
       return 'Estamos com muitos pedidos agora. Tente de novo em alguns minutos — seus créditos foram devolvidos.'
+    /**
+     * Sem "tente de novo": o problema é do nosso lado e nenhuma tentativa dele
+     * resolve. Mandar o usuário insistir aqui só o faria repetir o mesmo erro
+     * até desistir do produto.
+     */
+    case 'quota_exhausted':
+      return 'Estamos com um problema no nosso provedor de imagens e não foi possível gerar agora. Seus créditos foram devolvidos e já estamos sabendo.'
     case 'timeout':
       return 'A geração demorou mais que o esperado e foi interrompida. Seus créditos foram devolvidos.'
     default:

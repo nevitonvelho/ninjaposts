@@ -8,6 +8,11 @@ export interface StyleSpec {
    * Fragmento injetado no briefing criativo. Descreve *direção de arte*
    * (luz, textura, composição), não adjetivos vagos — é o que o modelo de
    * imagem realmente consegue executar.
+   *
+   * **Em inglês**, ao contrário do resto do arquivo: ele é copiado para dentro
+   * do `imagePrompt`, que precisa sair em inglês. Escrevê-lo em português
+   * obrigava o modelo de texto a traduzir no meio do caminho, e direção de arte
+   * traduzida chega diluída.
    */
   promptFragment: string
   /** Gradiente de pré-visualização enquanto não há imagem de exemplo. */
@@ -20,7 +25,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Minimalista',
     description: 'Muito espaço, poucos elementos',
     promptFragment:
-      'composição minimalista, fundo liso e amplo espaço negativo, um único ponto focal, iluminação suave e difusa, paleta reduzida, tipografia limpa sem serifa',
+      'minimalist composition, flat uncluttered background and generous negative space, a single focal point, soft diffused lighting, reduced palette, clean sans-serif typography',
     preview: 'from-zinc-100 to-zinc-200',
   },
   moderno: {
@@ -28,7 +33,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Moderno',
     description: 'Geométrico e contemporâneo',
     promptFragment:
-      'design contemporâneo com formas geométricas, blocos de cor sólidos, grid assimétrico, sombras longas e nítidas, alto contraste',
+      'contemporary design with geometric shapes, solid colour blocks, asymmetric grid, long crisp shadows, high contrast',
     preview: 'from-violet-200 to-indigo-300',
   },
   elegante: {
@@ -36,7 +41,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Elegante',
     description: 'Sofisticado e discreto',
     promptFragment:
-      'estética sofisticada, tipografia serifada refinada, texturas sutis de mármore ou linho, iluminação lateral suave, paleta neutra com um acento metálico',
+      'sophisticated aesthetic, refined serif typography, subtle marble or linen textures, soft side lighting, neutral palette with one metallic accent',
     preview: 'from-stone-200 to-amber-100',
   },
   vibrante: {
@@ -44,7 +49,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Vibrante',
     description: 'Cores fortes e energia',
     promptFragment:
-      'cores altamente saturadas, contraste intenso, gradientes energéticos, iluminação dramática, composição dinâmica em diagonal',
+      'highly saturated colour, intense contrast, energetic gradients, dramatic lighting, dynamic diagonal composition',
     preview: 'from-orange-300 to-pink-400',
   },
   retro: {
@@ -52,7 +57,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Retrô',
     description: 'Nostalgia dos anos 70–90',
     promptFragment:
-      'estética vintage anos 80, grão de filme, paleta desbotada quente, tipografia condensada da época, textura de papel impresso',
+      'eighties vintage aesthetic, film grain, warm faded palette, period condensed typography, printed paper texture',
     preview: 'from-amber-200 to-red-300',
   },
   luxuoso: {
@@ -60,7 +65,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Luxuoso',
     description: 'Premium e exclusivo',
     promptFragment:
-      'apresentação premium, fundo escuro profundo, detalhes dourados, reflexos suaves, iluminação de estúdio direcional, acabamento acetinado',
+      'premium presentation, deep dark background, gold detailing, soft reflections, directional studio lighting, satin finish',
     preview: 'from-zinc-800 to-yellow-700',
   },
   divertido: {
@@ -68,7 +73,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Divertido',
     description: 'Descontraído e jovem',
     promptFragment:
-      'ilustração lúdica, formas arredondadas, cores alegres, elementos flutuantes, sombras macias, clima descontraído e acolhedor',
+      'playful illustration, rounded shapes, cheerful colours, floating elements, soft shadows, relaxed and welcoming mood',
     preview: 'from-sky-200 to-emerald-300',
   },
   natural: {
@@ -76,7 +81,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Natural',
     description: 'Orgânico e artesanal',
     promptFragment:
-      'estética orgânica, luz natural de janela, texturas de madeira e tecido cru, tons terrosos, composição fotográfica realista',
+      'organic aesthetic, natural window light, raw wood and fabric textures, earthy tones, realistic photographic composition',
     preview: 'from-lime-200 to-stone-300',
   },
   tecnologico: {
@@ -84,7 +89,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Tecnológico',
     description: 'Futurista e digital',
     promptFragment:
-      'estética futurista, luz neon fria, superfícies escuras com reflexo, linhas de grid, brilho volumétrico, acabamento digital de alta precisão',
+      'futuristic aesthetic, cool neon light, dark reflective surfaces, grid lines, volumetric glow, high-precision digital finish',
     preview: 'from-cyan-300 to-blue-600',
   },
   artesanal: {
@@ -92,7 +97,7 @@ export const STYLES: Record<StyleId, StyleSpec> = {
     label: 'Artesanal',
     description: 'Feito à mão, afetivo',
     promptFragment:
-      'aparência feita à mão, traços de pincel e lettering manual, textura de papel kraft, colagem, imperfeições intencionais',
+      'handmade look, brush strokes and hand lettering, kraft paper texture, collage, intentional imperfections',
     preview: 'from-orange-200 to-amber-300',
   },
 }

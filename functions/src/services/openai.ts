@@ -30,9 +30,23 @@ function openai(): OpenAI {
  */
 export class ProviderError extends Error {
   constructor(
-    readonly code: 'content_policy' | 'rate_limited' | 'provider_error' | 'timeout',
+    readonly code:
+      | 'content_policy'
+      | 'rate_limited'
+      | 'quota_exhausted'
+      | 'provider_error'
+      | 'timeout',
     message: string,
     readonly retryable: boolean,
+    /**
+     * O código cru da OpenAI (`insufficient_quota`, `rate_limit_exceeded`…).
+     *
+     * Existe só para o log: é campo próprio da instância, então aparece
+     * sozinho no `console.error` do worker junto de `code` e `retryable`. Sem
+     * ele, dois 429 de causas opostas deixam exatamente o mesmo rastro — e a
+     * investigação começa adivinhando.
+     */
+    readonly providerCode?: string,
   ) {
     super(message)
     this.name = 'ProviderError'
@@ -50,20 +64,44 @@ function classify(error: unknown): ProviderError {
       'content_policy',
       'O conteúdo pedido não passou na moderação do provedor.',
       false,
+      type,
     )
   }
+
+  /**
+   * 429 é ambíguo na OpenAI, e é o ponto onde mais se perde tempo.
+   *
+   * O mesmo status cobre throttling — que passa sozinho, e onde repetir é
+   * exatamente a coisa certa — e conta sem saldo, onde repetir não resolve em
+   * tentativa nenhuma. Só o `code` do corpo separa os dois.
+   *
+   * Tratar saldo zerado como repetível custa três chamadas e 14s de backoff
+   * por geração, e faz o usuário ler "tente de novo em alguns minutos" para um
+   * problema que só o dono da conta resolve.
+   */
   if (status === 429) {
-    return new ProviderError('rate_limited', 'Limite de requisições atingido.', true)
+    const semSaldo = /insufficient_quota|billing_hard_limit_reached|exceeded your current quota/i
+      .test(`${type} ${message}`)
+
+    return semSaldo
+      ? new ProviderError(
+          'quota_exhausted',
+          'A conta do provedor de IA está sem saldo.',
+          false,
+          type,
+        )
+      : new ProviderError('rate_limited', 'Limite de requisições atingido.', true, type)
   }
+
   if (status === 408 || /timeout|ETIMEDOUT|ECONNRESET/i.test(message)) {
-    return new ProviderError('timeout', 'O provedor demorou demais para responder.', true)
+    return new ProviderError('timeout', 'O provedor demorou demais para responder.', true, type)
   }
   if (status && status >= 500) {
-    return new ProviderError('provider_error', 'O provedor está instável.', true)
+    return new ProviderError('provider_error', 'O provedor está instável.', true, type)
   }
   // 4xx que não conhecemos é bug nosso (prompt malformado, parâmetro inválido):
   // repetir só queimaria as três tentativas contra o mesmo erro.
-  return new ProviderError('provider_error', message, false)
+  return new ProviderError('provider_error', message, false, type)
 }
 
 export interface BriefResult {

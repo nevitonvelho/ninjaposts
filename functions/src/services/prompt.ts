@@ -14,6 +14,71 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
 }
 
+/**
+ * Anatomia de um anúncio de conversão, zona por zona.
+ *
+ * Existe porque pedir "composição, enquadramento, iluminação" produz uma cena,
+ * não uma peça: o modelo entrega uma foto bonita e o texto acaba jogado por
+ * cima. Anúncio é **diagramação** — logo num canto, título dominante, coluna de
+ * itens, caixa de preço, barra de CTA, rodapé — e isso precisa ser pedido.
+ *
+ * Em inglês para ser aproveitada direto no `layoutPlan`, que vai para o modelo
+ * de imagem. Não é camisa de força: o briefing escolhe as zonas que fazem
+ * sentido para o formato e a oferta — um story não comporta o mesmo que um
+ * feed quadrado.
+ */
+const AD_ANATOMY = [
+  'brand logo — small, in a top corner, generous clear space, never stretched or recoloured',
+  'headline — the largest type on the piece, heavy condensed sans, one to three words',
+  'subheadline — a single short supporting line under the headline, one word accented in the brand colour',
+  'item list — a vertical column down one side, one short line per item, thin rules between them, small line icons',
+  'hero product — the photographic centrepiece, the largest object, slightly off centre',
+  'price block — an outlined or filled box, the second largest type, small currency symbol and a huge number',
+  'call to action — a bar or pill with strong contrast against the background',
+  'footer — a discreet strip with two or three very short trust badges',
+]
+
+/**
+ * Direção de fotografia publicitária.
+ *
+ * Sem isto o modelo assume render 3D, e é daí que vem o aspecto plástico: o
+ * produto sai liso demais, com cor chapada e brilho de material sintético.
+ * Nomear câmera, lente e esquema de luz é o que puxa o resultado para o
+ * repertório de fotografia real.
+ */
+const PHOTO_REALISM = [
+  'shot on a full-frame camera, 85mm lens at f/2.8, shallow depth of field',
+  'studio strobes: warm key light, cool rim light separating the subject from the background',
+  'natural specular highlights, real surface texture, visible crumb and grain, condensation only where it belongs',
+  'graded like a commercial campaign — rich but never oversaturated',
+].join('; ')
+
+/**
+ * O que nunca pode aparecer.
+ *
+ * Vai **sempre**, somado ao negativo que o modelo de texto escreve. Deixar a
+ * lista inteiramente a cargo do modelo é apostar que ele lembre de tudo em toda
+ * geração, e ele não lembra.
+ *
+ * O último grupo é o mais importante e não é estético: telefone, endereço, site
+ * ou @ inventados numa peça que o dono vai publicar mandam cliente para o
+ * contato de outra pessoa. É o pior defeito que este produto pode ter — pior
+ * que arte feia, porque arte feia ninguém publica.
+ */
+const ANTI_AI = [
+  'plastic CGI sheen',
+  'over-sharpened HDR',
+  'waxy or artificial-looking food',
+  'warped or melted typography',
+  'misspelled, duplicated or gibberish lettering',
+  'extra fingers, limbs or floating objects',
+  'watermark',
+  'invented phone numbers',
+  'invented addresses',
+  'invented website URLs',
+  'invented social media handles',
+].join(', ')
+
 /** Linhas "campo: valor", omitindo o que o usuário não preencheu. */
 function briefFacts(input: GenerationInput): string {
   const lines: string[] = [
@@ -55,28 +120,55 @@ export function buildBriefInstructions(input: GenerationInput): string {
   const hashtagLimit = Math.max(...input.networks.map(n => NETWORKS[n].hashtagLimit))
 
   return [
-    'Você é diretor de arte e redator publicitário especializado em pequenos negócios brasileiros.',
+    'Você é diretor de arte premiado, especializado em campanhas de alta conversão',
+    'para pequenos negócios brasileiros. Seu trabalho é indistinguível do de uma',
+    'agência: diagramação em grid, hierarquia impecável, muito espaço negativo.',
+    '',
     'A partir dos dados abaixo, produza o briefing criativo de UM post para redes sociais.',
     '',
     briefFacts(input),
     '',
     'Regras:',
-    `- "imagePrompt": escreva EM INGLÊS, descritivo e cinematográfico, pronto para um modelo de imagem. Descreva composição, enquadramento, iluminação, materiais, profundidade de campo e hierarquia visual. Incorpore esta direção de arte: ${style.promptFragment}.`,
-    `- A peça é ${format.label} (${format.ratio}) — componha para essa proporção e deixe respiro onde o texto vai entrar.`,
+    `- "imagePrompt": EM INGLÊS, a cena e a direção de arte — materiais, atmosfera, textura de fundo, profundidade. Incorpore: ${style.promptFragment}.`,
+    '',
+    '- "layoutPlan": EM INGLÊS, a DIAGRAMAÇÃO da peça, zona por zona: onde cada bloco'
+    + ' vive e que tamanho ocupa em relação aos outros. Este é o campo que transforma'
+    + ' uma foto num anúncio — descreva posição, não sentimento. Escolha as zonas que'
+    + ' fazem sentido para o formato e a oferta, deste repertório:',
+    `  - ${AD_ANATOMY.join('\n  - ')}`,
+    `  A peça é ${format.label} (${format.ratio}); componha para essa proporção.`,
+    '',
+    '- "photography": EM INGLÊS, a direção de fotografia do produto. Se o produto for'
+    + ' comida ou bebida, especifique fotografia publicitária de alimento — vapor,'
+    + ' brilho de gordura, frescor, corte que mostra as camadas. Se não for, a direção'
+    + ' equivalente para o tipo de produto.',
+    '',
     input.colors.length
-      ? `- Use a paleta ${input.colors.join(', ')} como base cromática, sem citar códigos hex no prompt.`
-      : '- Escolha uma paleta que combine com o estilo e o nicho.',
-    '- "negativePrompt": EM INGLÊS, o que deve ser evitado (texto ilegível, marca d\'água, deformações, ruído).',
+      ? `- "colorGuidance": EM INGLÊS, como usar a paleta ${input.colors.join(', ')} na peça, sem citar códigos hex.`
+      : '- "colorGuidance": EM INGLÊS, escolha uma paleta que combine com o estilo e o nicho e explique o uso.',
+    '- "negativePrompt": EM INGLÊS, o que evitar **nesta peça especificamente** (o resto já é tratado).',
     `- "caption": legenda EM PORTUGUÊS DO BRASIL, no máximo ${captionLimit} caracteres, tom próximo do público, com emojis usados com moderação.`,
     hashtagLimit > 0
       ? `- "hashtags": entre 8 e ${Math.min(15, hashtagLimit)} hashtags em português, misturando alcance amplo e nicho, sem o símbolo "#".`
       : '- "hashtags": array vazio — a rede escolhida não usa hashtags.',
     '- "altText": descrição objetiva da imagem EM PORTUGUÊS, para acessibilidade.',
-    '- "colorGuidance": uma frase EM INGLÊS sobre o uso das cores na peça.',
-    '- "textOverlay": os textos exatos que devem aparecer na arte, EM PORTUGUÊS. "headline" é obrigatório e curto (até 6 palavras).',
+    '',
+    '- "textOverlay": os textos exatos que aparecem NA ARTE, EM PORTUGUÊS. Cada campo é'
+    + ' uma zona do layout, e texto curto é o que sai legível — seja implacável:',
+    '  - "headline": obrigatório, no máximo 3 palavras. É o maior tipo da peça.',
+    '  - "subheadline": uma linha curta de apoio, ou null.',
+    '  - "items": as partes do combo/pacote, uma por linha, no máximo 4, cada uma com'
+    + ' até 4 palavras. Array vazio se a oferta não for composta.',
     input.priceCents !== null
-      ? `- "textOverlay.price" deve ser exatamente "${formatPrice(input.priceCents)}".`
-      : '- "textOverlay.price" deve ser null: este post não mostra preço.',
+      ? `  - "price": exatamente "${formatPrice(input.priceCents)}".`
+      : '  - "price": null — este post não mostra preço.',
+    '  - "promotion": o selo da promoção, no máximo 4 palavras, ou null.',
+    '  - "cta": no máximo 4 palavras, ou null.',
+    '  - "contact": telefone, WhatsApp ou endereço APENAS se aparecer literalmente nos'
+    + ' dados acima. Caso contrário, null. NUNCA invente um número, endereço, site ou @:'
+    + ' o dono vai publicar esta peça, e um contato falso manda o cliente dele para'
+    + ' outro lugar.',
+    '',
     '- Nada de promessa enganosa, superlativo vazio ou informação que não veio dos dados.',
   ].join('\n')
 }
@@ -85,8 +177,12 @@ export function buildBriefInstructions(input: GenerationInput): string {
 export const BRIEF_SCHEMA = {
   type: 'object',
   additionalProperties: false,
+  // `strict: true` exige que TODO campo declarado esteja em `required` — campo
+  // opcional de verdade se expressa com `type: [..., 'null']`, não omitindo daqui.
   required: [
     'imagePrompt',
+    'layoutPlan',
+    'photography',
     'negativePrompt',
     'caption',
     'hashtags',
@@ -96,6 +192,8 @@ export const BRIEF_SCHEMA = {
   ],
   properties: {
     imagePrompt: { type: 'string' },
+    layoutPlan: { type: 'string' },
+    photography: { type: 'string' },
     negativePrompt: { type: 'string' },
     caption: { type: 'string' },
     hashtags: { type: 'array', items: { type: 'string' } },
@@ -104,12 +202,15 @@ export const BRIEF_SCHEMA = {
     textOverlay: {
       type: 'object',
       additionalProperties: false,
-      required: ['headline', 'price', 'promotion', 'cta'],
+      required: ['headline', 'subheadline', 'price', 'promotion', 'cta', 'items', 'contact'],
       properties: {
         headline: { type: 'string' },
+        subheadline: { type: ['string', 'null'] },
         price: { type: ['string', 'null'] },
         promotion: { type: ['string', 'null'] },
         cta: { type: ['string', 'null'] },
+        items: { type: 'array', items: { type: 'string' } },
+        contact: { type: ['string', 'null'] },
       },
     },
   },
@@ -118,34 +219,66 @@ export const BRIEF_SCHEMA = {
 /**
  * Prompt final da imagem.
  *
- * No modo `ai` (v1) o texto é renderizado pelo próprio modelo — então os
- * textos do `textOverlay` entram no prompt, com instrução explícita de grafia
- * correta. É o ponto fraco conhecido dos modelos de imagem, e repetir o texto
- * exato entre aspas é o que mais reduz o erro tipográfico.
+ * Montado em **seções rotuladas**, e não num parágrafo corrido: o modelo trata
+ * cada rótulo como um compartimento, e direção de arte deixa de competir com
+ * tipografia pela mesma atenção.
+ *
+ * No modo `ai` (v1) o texto é renderizado pelo próprio modelo. Cada string sai
+ * **amarrada à sua zona** — string curta com endereço erra muito menos que uma
+ * lista solta —, entre aspas e com instrução de grafia exata. E o prompt fecha
+ * proibindo qualquer texto além dos listados: sem isso o modelo preenche o
+ * espaço vazio com letra inventada, que é a origem do rabisco ilegível.
  */
 export function buildImagePrompt(brief: CreativeBrief, input: GenerationInput): string {
-  const parts: string[] = [brief.imagePrompt, brief.colorGuidance]
+  const format = FORMATS[input.format]
+  const sections: string[] = [
+    // Só a proporção: `format.label` é rótulo de UI em português, e português
+    // solto no meio de um prompt em inglês só adiciona ruído.
+    `FORMAT: ${format.ratio} advertising creative for social media.`,
+    `ART DIRECTION: ${brief.imagePrompt}`,
+    `LAYOUT: ${brief.layoutPlan}`,
+    // Em duas linhas: o modelo escreve a direção do produto, e a técnica fixa
+    // entra separada. Emendar as duas produzia frase quebrada no meio.
+    `PHOTOGRAPHY: ${brief.photography}\nTechnical direction: ${PHOTO_REALISM}.`,
+    `COLOR: ${brief.colorGuidance}`,
+  ]
 
   if (input.renderMode === 'ai') {
-    const texts: string[] = [`headline: "${brief.textOverlay.headline}"`]
-    if (brief.textOverlay.price) texts.push(`price: "${brief.textOverlay.price}"`)
-    if (brief.textOverlay.promotion) texts.push(`promotion: "${brief.textOverlay.promotion}"`)
-    if (brief.textOverlay.cta) texts.push(`call to action: "${brief.textOverlay.cta}"`)
+    const { headline, subheadline, price, promotion, cta, items, contact } = brief.textOverlay
 
-    parts.push(
-      `Render the following Brazilian Portuguese text on the artwork, spelled EXACTLY as written, `
-      + `with clean professional typography and clear visual hierarchy — ${texts.join('; ')}.`,
+    const zones: string[] = [`headline zone — "${headline}"`]
+    if (subheadline) zones.push(`subheadline, directly under the headline — "${subheadline}"`)
+    if (items.length) {
+      zones.push(`item list column, one line each — ${items.map(i => `"${i}"`).join(', ')}`)
+    }
+    if (price) zones.push(`price block — "${price}"`)
+    if (promotion) zones.push(`promotion badge — "${promotion}"`)
+    if (cta) zones.push(`call-to-action bar — "${cta}"`)
+    if (contact) zones.push(`contact bar, next to the call to action — "${contact}"`)
+
+    sections.push(
+      'TYPOGRAPHY: render the following Brazilian Portuguese text, spelled character for'
+      + ' character exactly as written, with clean professional kerning and clear'
+      + ` hierarchy:\n- ${zones.join('\n- ')}\n`
+      + 'Render NO other text, letters, numbers or symbols anywhere in the image.',
     )
   } else {
     // Modo `hybrid`: a IA entrega a cena limpa e o texto é composto depois.
-    parts.push('Do not render any text, letters or numbers in the image. Leave clean negative space for typography.')
+    sections.push(
+      'TYPOGRAPHY: render no text, letters or numbers at all. Leave clean, uncluttered'
+      + ' negative space in the zones described above, where typography will be composited later.',
+    )
   }
 
   if (input.logoPath) {
-    parts.push('Integrate the provided brand logo naturally into the composition, undistorted, with adequate clear space.')
+    sections.push(
+      'BRAND: the provided image is the brand logo. Place it in the logo zone exactly as'
+      + ' given — same shapes, same proportions, undistorted, not recoloured — with'
+      + ' adequate clear space around it.',
+    )
   }
 
-  parts.push(`Avoid: ${brief.negativePrompt}`)
+  sections.push(`AVOID: ${brief.negativePrompt}, ${ANTI_AI}.`)
 
-  return parts.filter(Boolean).join('\n\n')
+  return sections.filter(Boolean).join('\n\n')
 }
