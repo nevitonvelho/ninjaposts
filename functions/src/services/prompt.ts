@@ -217,6 +217,31 @@ export const BRIEF_SCHEMA = {
 } as const
 
 /**
+ * Prompt da 2ª passada — integrar a logo na arte já pronta.
+ *
+ * Curto de propósito. A arte já existe e a única tarefa é encaixar a marca; um
+ * prompt longo aqui convidaria o modelo a reinterpretar a cena inteira, que é
+ * exatamente o que `input_fidelity: 'high'` está tentando impedir.
+ *
+ * As duas frases finais carregam o peso: preservar a forma exata da marca, e
+ * não mexer em mais nada.
+ */
+export function buildLogoIntegrationPrompt(): string {
+  return [
+    'The first image is a finished advertising creative with a deliberately clean,',
+    'uncluttered area in its top-left corner. The second image is the brand logo.',
+    '',
+    'Place the logo into that reserved corner so it belongs to the scene — picking up the',
+    'ambient light, the surface texture and any perspective already present there, as a',
+    'real printed or applied mark would.',
+    '',
+    'Preserve the logo exactly: same shapes, same proportions, same colours, same lettering.',
+    'Do not redraw, restyle, translate or reletter it. Change nothing else in the artwork —',
+    'keep the existing composition, product, typography and colours untouched.',
+  ].join('\n')
+}
+
+/**
  * Prompt final da imagem.
  *
  * Montado em **seções rotuladas**, e não num parágrafo corrido: o modelo trata
@@ -271,10 +296,18 @@ export function buildImagePrompt(brief: CreativeBrief, input: GenerationInput): 
   }
 
   if (input.logoPath) {
+    /**
+     * A logo não vai para o modelo — é composta com `sharp` depois. O que o
+     * prompt faz é **reservar o lugar** dela.
+     *
+     * A proibição explícita não é redundante: sem ela o modelo desenha uma
+     * marca inventada no canto, e a composição acaba empilhando duas logos.
+     */
     sections.push(
-      'BRAND: the provided image is the brand logo. Place it in the logo zone exactly as'
-      + ' given — same shapes, same proportions, undistorted, not recoloured — with'
-      + ' adequate clear space around it.',
+      'BRAND: leave the top-left corner clean and uncluttered — flat, low-detail,'
+      + ' even-toned background with no important subject matter — as reserved space'
+      + ' where the real brand logo will be placed afterwards.'
+      + ' Do NOT draw, invent or letter any logo, emblem, wordmark or brand name anywhere.',
     )
   }
 

@@ -2,7 +2,12 @@ import OpenAI from 'openai'
 import { FORMATS } from '../../../shared/constants'
 import type { CreativeBrief, GenerationInput } from '../../../shared/types/generation'
 import { briefModel, imageModel, openaiApiKey } from '../lib/env'
-import { BRIEF_SCHEMA, buildBriefInstructions, buildImagePrompt } from './prompt'
+import {
+  BRIEF_SCHEMA,
+  buildBriefInstructions,
+  buildImagePrompt,
+  buildLogoIntegrationPrompt,
+} from './prompt'
 import { estimateImageCost, estimateTextCost } from './cost'
 
 /**
@@ -162,14 +167,40 @@ export interface RenderResult {
   revisedPrompt: string | null
   costUsd: number
   model: string
+  /**
+   * A logo já está **dentro** da imagem.
+   *
+   * Decide se o pós-processamento ainda precisa colá-la: sem esta bandeira, uma
+   * segunda passada bem-sucedida levaria a logo duas vezes na mesma arte.
+   */
+  logoIntegrated: boolean
+}
+
+/** `toFile` da própria SDK — evita montar `FormData` na mão. */
+async function toFile(buffer: Buffer, name: string, type: string) {
+  const { toFile: openaiToFile } = await import('openai')
+  return openaiToFile(buffer, name, { type })
 }
 
 /**
- * Etapa RENDER — Images API.
+ * Etapa RENDER — Images API, em duas passadas quando há logo.
  *
- * Com logo, usamos `images.edit` em vez de `images.generate`: é o caminho que
- * aceita imagem de referência, e é o que faz a marca sair reconhecível em vez
- * de "algo parecido com um logo".
+ * **1ª — `images.generate`.** Texto puro, sem imagem de entrada, que é o que
+ * entrega a melhor composição. O prompt reserva um canto limpo para a marca.
+ *
+ * **2ª — `images.edit` com `[arte, logo]`.** Só aqui a logo entra, e entra
+ * recebendo a luz e a textura da cena. Esta é a forma correta de usar o
+ * endpoint: a **arte** é a tela e a logo é referência. Mandar só a logo, como
+ * era antes, fazia o modelo tratá-la como tela e ancorava a composição inteira
+ * numa imagem de 200 pixels — a causa provável da queda de qualidade.
+ *
+ * `input_fidelity: 'high'` vale para as duas imagens: preserva o traço da marca
+ * *e* impede a segunda passada de reescrever a arte que já ficou boa.
+ *
+ * A 2ª passada é **melhoria, não requisito**. Se falhar, a arte da 1ª já está
+ * pronta e a logo vai por composição no `sharp`. Derrubar um job inteiro — com
+ * estorno e espera — porque um realce não saiu seria trocar o produto pelo
+ * acabamento.
  */
 export async function renderImage(
   input: GenerationInput,
@@ -181,44 +212,74 @@ export async function renderImage(
   const prompt = buildImagePrompt(brief, input)
   const quality = 'high' as const
 
+  let art: Buffer
+  let revisedPrompt: string | null
+  let costUsd = estimateImageCost(size, quality)
+
   try {
-    const response = logo
-      ? await openai().images.edit({
-          model,
-          image: [await toFile(logo, 'logo.png', 'image/png')],
-          prompt,
-          size,
-          quality,
-        })
-      : await openai().images.generate({
-          model,
-          prompt,
-          size,
-          quality,
-          n: 1,
-          output_format: 'png',
-        })
+    const response = await openai().images.generate({
+      model,
+      prompt,
+      size,
+      quality,
+      n: 1,
+      output_format: 'png',
+    })
 
     const first = response.data?.[0]
     if (!first?.b64_json) {
       throw new ProviderError('provider_error', 'O provedor não devolveu imagem.', true)
     }
 
-    return {
-      png: Buffer.from(first.b64_json, 'base64'),
-      promptUsed: prompt,
-      revisedPrompt: first.revised_prompt ?? null,
-      costUsd: estimateImageCost(size, quality),
-      model,
-    }
+    art = Buffer.from(first.b64_json, 'base64')
+    revisedPrompt = first.revised_prompt ?? null
   } catch (error) {
     if (error instanceof ProviderError) throw error
     throw classify(error)
   }
+
+  if (!logo) {
+    return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
+  }
+
+  const integrationPrompt = buildLogoIntegrationPrompt()
+
+  try {
+    const merged = await openai().images.edit({
+      model,
+      image: [
+        await toFile(art, 'arte.png', 'image/png'),
+        await toFile(logo, 'logo.png', 'image/png'),
+      ],
+      prompt: integrationPrompt,
+      size,
+      quality,
+      input_fidelity: 'high',
+    })
+
+    const first = merged.data?.[0]
+    if (!first?.b64_json) {
+      throw new Error('a integração da logo não devolveu imagem')
+    }
+
+    costUsd += estimateImageCost(size, quality)
+
+    return {
+      png: Buffer.from(first.b64_json, 'base64'),
+      promptUsed: `${prompt}\n\n--- 2ª passada (logo) ---\n${integrationPrompt}`,
+      revisedPrompt,
+      costUsd,
+      model,
+      logoIntegrated: true,
+    }
+  } catch (error) {
+    /**
+     * Sem `throw`: a arte da 1ª passada é entregável, e a logo ainda entra pelo
+     * `sharp`. O usuário recebe a peça em vez de um estorno.
+     */
+    console.warn('[worker] integração da logo falhou — caindo para composição com sharp:', error)
+
+    return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
+  }
 }
 
-/** `toFile` da própria SDK — evita montar `FormData` na mão. */
-async function toFile(buffer: Buffer, name: string, type: string) {
-  const { toFile: openaiToFile } = await import('openai')
-  return openaiToFile(buffer, name, { type })
-}

@@ -76,8 +76,17 @@ export const onGenerationCreated = onDocumentCreated(
       costUsd += render.costUsd
 
       // --- PROCESS + UPLOAD ---
+      /**
+       * A logo só é composta aqui quando a 2ª passada do render não a integrou
+       * — por ausência de logo ou por falha na integração. Passar sempre
+       * colaria uma segunda marca sobre a que o modelo já desenhou.
+       */
       await advance(generationId, 'finishing')
-      const image = await processImage(render.png, input.format)
+      const image = await processImage(
+        render.png,
+        input.format,
+        render.logoIntegrated ? null : logo,
+      )
       const paths = await uploadGenerationFiles(ownerId, generationId, image)
 
       // --- COMMIT ---
