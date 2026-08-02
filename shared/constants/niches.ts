@@ -15,8 +15,18 @@ export interface NicheSuggestion {
  * Fechar o vocabulário aqui limitaria o produto aos negócios que imaginamos hoje.
  */
 export const NICHE_SUGGESTIONS: NicheSuggestion[] = [
-  { label: 'Hamburgueria', icon: 'lucide:beef', suggestedStyle: 'vibrante', sampleProduct: 'X-Bacon', sampleCta: 'Peça agora' },
-  { label: 'Pizzaria', icon: 'lucide:pizza', suggestedStyle: 'vibrante', sampleProduct: 'Pizza Calabresa G', sampleCta: 'Peça pelo WhatsApp' },
+  /**
+   * Comida pede `luxuoso`, não `vibrante` — e isto custou uma arte para
+   * descobrir.
+   *
+   * O fragmento de "Vibrante" pede *cores altamente saturadas, gradientes
+   * energéticos, composição dinâmica em diagonal*, e era exatamente isso que
+   * saía: fundo laranja chapado com texto flutuando. Anúncio de hamburgueria
+   * que parece feito por agência é escuro, com o produto iluminado como se
+   * estivesse num estúdio — que é o que `luxuoso` descreve.
+   */
+  { label: 'Hamburgueria', icon: 'lucide:beef', suggestedStyle: 'luxuoso', sampleProduct: 'X-Bacon', sampleCta: 'Peça agora' },
+  { label: 'Pizzaria', icon: 'lucide:pizza', suggestedStyle: 'luxuoso', sampleProduct: 'Pizza Calabresa G', sampleCta: 'Peça pelo WhatsApp' },
   { label: 'Cafeteria', icon: 'lucide:coffee', suggestedStyle: 'natural', sampleProduct: 'Cappuccino artesanal', sampleCta: 'Venha tomar um café' },
   { label: 'Açaí e sorvetes', icon: 'lucide:ice-cream-cone', suggestedStyle: 'divertido', sampleProduct: 'Açaí 500ml', sampleCta: 'Monte o seu' },
   { label: 'Barbearia', icon: 'lucide:scissors', suggestedStyle: 'moderno', sampleProduct: 'Corte + barba', sampleCta: 'Agende seu horário' },
