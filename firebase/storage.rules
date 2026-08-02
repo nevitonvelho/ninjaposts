@@ -1,0 +1,65 @@
+rules_version = '2';
+
+/**
+ * Storage Rules — ver docs/ARCHITECTURE.md §2.10
+ *
+ * O worker de geração usa o Admin SDK, que ignora estas regras por completo.
+ * Portanto tudo que o worker escreve (as artes) pode ser negado ao cliente sem
+ * quebrar nada — o cliente só precisa ler.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(png|jpeg|webp|svg\\+xml)');
+    }
+
+    function withinLogoSize() {
+      return request.resource.size <= 2 * 1024 * 1024;
+    }
+
+    // -----------------------------------------------------------------
+    // Logo da marca — único caminho em que o cliente escreve
+    // -----------------------------------------------------------------
+    match /users/{uid}/logo/{fileName} {
+      allow read: if isOwner(uid);
+
+      /**
+       * Validar tipo e tamanho aqui, e não só no formulário, é o que impede
+       * alguém de usar o bucket como hospedagem de arquivos: o cliente pode
+       * chamar o SDK diretamente, sem passar pela nossa UI.
+       */
+      allow create, update: if isOwner(uid) && isImage() && withinLogoSize();
+      allow delete: if isOwner(uid);
+    }
+
+    // -----------------------------------------------------------------
+    // Artes geradas — escritas pelo worker, lidas pelo dono
+    // -----------------------------------------------------------------
+    match /generations/{uid}/{generationId}/{fileName} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------------
+    // Previews dos templates — catálogo público do produto
+    // -----------------------------------------------------------------
+    match /templates/{templateId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Falha fechada para qualquer caminho não previsto.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

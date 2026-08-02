@@ -1,0 +1,194 @@
+rules_version = '2';
+
+/**
+ * Security Rules do CriaPosts — ver docs/ARCHITECTURE.md §2.9
+ *
+ * Regra de ouro: tudo que envolve dinheiro ou custo de API é escrito
+ * exclusivamente pelo Admin SDK. O cliente nunca escreve `credits`,
+ * `role`, nem qualquer campo de `generations` — se pudesse, escolheria o
+ * próprio saldo.
+ *
+ * Estas Rules são a fronteira de segurança real. Os middlewares do Nuxt são
+ * apenas UX: qualquer pessoa pode editar o JS no navegador, ninguém edita isto.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Custom claim atribuída por script (scripts/set-admin.ts), nunca pela app.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function ownsResource() {
+      return isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    function ownsIncoming() {
+      return isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    /** Campos que a atualização está tentando tocar. */
+    function touchedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isValidBrand(brand) {
+      return brand.keys().hasOnly(['logoPath', 'colors', 'defaultStyle'])
+        && brand.keys().hasAll(['logoPath', 'colors', 'defaultStyle'])
+        && (brand.logoPath == null || (brand.logoPath is string && brand.logoPath.size() <= 300))
+        && brand.colors is list
+        && brand.colors.size() <= 4
+        && (brand.defaultStyle == null || brand.defaultStyle is string);
+    }
+
+    // ---------------------------------------------------------------
+    // users — perfil e saldo de créditos
+    // ---------------------------------------------------------------
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+
+      // `list` é separado de propósito: sem isto, qualquer usuário autenticado
+      // poderia varrer a coleção inteira e ler o e-mail de todos os clientes.
+      allow list: if isAdmin();
+
+      // O documento nasce no servidor (§6.2). Permitir create aqui deixaria o
+      // usuário definir o próprio saldo inicial de créditos.
+      allow create: if false;
+
+      /**
+       * O cliente edita apenas o próprio perfil, e apenas estes campos.
+       * `credits`, `role` e `stats` ficam de fora — são escritos só
+       * pelo Admin SDK. `hasOnly` é o que garante isso: um update que inclua
+       * qualquer outra chave é rejeitado inteiro.
+       */
+      allow update: if isOwner(uid)
+        && touchedKeys().hasOnly(['displayName', 'company', 'brand', 'updatedAt', 'lastSeenAt'])
+        && (!touchedKeys().hasAny(['displayName'])
+            || (request.resource.data.displayName is string
+                && request.resource.data.displayName.size() >= 2
+                && request.resource.data.displayName.size() <= 80))
+        && (!touchedKeys().hasAny(['company'])
+            || request.resource.data.company == null
+            || (request.resource.data.company is string
+                && request.resource.data.company.size() <= 80))
+        && (!touchedKeys().hasAny(['brand']) || isValidBrand(request.resource.data.brand));
+
+      // Exclusão de conta passa pelo servidor: precisa remover Storage,
+      // gerações e compras em ordem.
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // generations — resultado das gerações de arte
+    // ---------------------------------------------------------------
+    match /generations/{generationId} {
+      allow get, list: if ownsResource() || isAdmin();
+
+      /**
+       * Escrita totalmente negada ao cliente.
+       *
+       * Criar aqui significaria gerar uma imagem sem debitar crédito; atualizar
+       * significaria marcar como `completed` sem ter pago pelo processamento.
+       * Criação, progresso e exclusão lógica passam pela API.
+       */
+      allow create, update, delete: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // projects — marcas do usuário
+    // ---------------------------------------------------------------
+    match /projects/{projectId} {
+      allow get, list: if ownsResource() || isAdmin();
+
+      allow create: if ownsIncoming()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.niche is string
+        && request.resource.data.niche.size() <= 60
+        && isValidBrand(request.resource.data.brand)
+        // Contador desnormalizado é mantido pelo servidor; nasce zerado.
+        && request.resource.data.generationsCount == 0;
+
+      allow update: if ownsResource()
+        && ownsIncoming()
+        && touchedKeys().hasOnly(['name', 'niche', 'description', 'brand', 'archivedAt', 'updatedAt'])
+        && (!touchedKeys().hasAny(['brand']) || isValidBrand(request.resource.data.brand));
+
+      allow delete: if ownsResource();
+    }
+
+    // ---------------------------------------------------------------
+    // purchases — compras de crédito confirmadas pelo gateway
+    // ---------------------------------------------------------------
+    match /purchases/{orderId} {
+      /**
+       * O dono lê o próprio extrato. `ownerId` só é preenchido quando a compra
+       * é ligada a uma conta — compra feita antes do cadastro fica sem dono e,
+       * portanto, invisível para todos exceto o admin, até ser reivindicada.
+       */
+      allow get, list: if ownsResource() || isAdmin();
+
+      // A fonte de verdade é o provedor. Só o webhook escreve.
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // templates — presets de estilo curados
+    // ---------------------------------------------------------------
+    match /templates/{templateId} {
+      allow get, list: if isSignedIn();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // creditLedger — auditoria imutável de créditos
+    // ---------------------------------------------------------------
+    match /creditLedger/{entryId} {
+      allow get, list: if ownsResource() || isAdmin();
+      // Imutável por definição: nem o servidor edita, só acrescenta.
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // stats — agregados do painel admin
+    // ---------------------------------------------------------------
+    match /stats/{docId} {
+      allow get, list: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // webhookEvents — idempotência de pagamentos
+    // ---------------------------------------------------------------
+    match /webhookEvents/{eventId} {
+      // Nada de cliente aqui, nem leitura: revelaria dados de cobrança.
+      allow read, write: if false;
+    }
+
+    /**
+     * Negação explícita para qualquer caminho não coberto acima.
+     *
+     * O Firestore já nega por padrão o que nenhuma regra permite, e regras são
+     * combinadas por OR — este bloco *não* revoga os `allow` acima. Ele é
+     * declaração de intenção: deixa explícito que nada fora do que está
+     * enumerado aqui é acessível, e faz um `match` amplo acrescentado por
+     * descuido no futuro destoar visivelmente do arquivo.
+     */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

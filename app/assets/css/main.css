@@ -1,0 +1,226 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — ver docs/ARCHITECTURE.md §9
+ *
+ * Tudo aqui é *semântico* (`canvas`, `line`, `ink`), não literal (`zinc-100`).
+ * Trocar a paleta inteira do produto vira uma edição neste bloco, e não uma
+ * varredura por centenas de componentes.
+ * ------------------------------------------------------------------------- */
+@theme {
+  /* Superfícies — a hierarquia é construída com 3 níveis, nunca mais que isso */
+  --color-canvas: #ffffff;
+  --color-subtle: #fafafa;
+  --color-muted: #f4f4f5;
+  --color-inset: #ededf0;
+
+  /* Bordas — 1px é a ferramenta principal de separação, não sombra pesada */
+  --color-line: #e4e4e7;
+  --color-line-strong: #d4d4d8;
+
+  /* Texto */
+  --color-ink: #09090b;
+  --color-ink-muted: #52525b;
+  --color-ink-subtle: #a1a1aa;
+  --color-ink-inverse: #fafafa;
+
+  /* Marca — violeta→índigo, usado com parcimônia: CTA e estado ativo */
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  /* Estados */
+  --color-success: #16a34a;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #d97706;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-info: #2563eb;
+  --color-info-soft: #eff6ff;
+
+  /* Raio — cards em 16px */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+
+  /* Sombra — dois níveis, muito suaves. Profundidade vem da borda, não do blur */
+  --shadow-soft: 0 1px 2px 0 rgb(9 9 11 / 0.04), 0 1px 3px 0 rgb(9 9 11 / 0.06);
+  --shadow-lifted: 0 4px 12px -2px rgb(9 9 11 / 0.06), 0 12px 32px -8px rgb(9 9 11 / 0.10);
+  --shadow-focus: 0 0 0 3px rgb(139 92 246 / 0.28);
+
+  /* Tipografia */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* Movimento — 150ms hover, 250ms entrada */
+  --ease-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-in: fade-in 0.25s var(--ease-out-soft);
+  --animate-fade-up: fade-up 0.3s var(--ease-spring);
+  --animate-scale-in: scale-in 0.2s var(--ease-spring);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Foco visível apenas para navegação por teclado — acessibilidade sem poluir o mouse */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-900);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-line-strong);
+    border: 3px solid var(--color-canvas);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-subtle);
+  }
+
+  /* Respeitar preferência do sistema não é opcional */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Utilitários de composição
+ * ------------------------------------------------------------------------- */
+@utility surface-card {
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility text-gradient-brand {
+  background-image: linear-gradient(
+    120deg,
+    var(--color-brand-600),
+    var(--color-brand-400) 60%,
+    var(--color-info)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Fundo de xadrez para pré-visualizar arte com transparência */
+@utility bg-checkerboard {
+  background-image:
+    linear-gradient(45deg, var(--color-muted) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-muted) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-muted) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-muted) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+@utility skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted) 0%,
+    var(--color-inset) 40%,
+    var(--color-muted) 80%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* ---------------------------------------------------------------------------
+ * Transição de página (nuxt.config → app.pageTransition)
+ * ------------------------------------------------------------------------- */
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 0.2s var(--ease-out-soft),
+    transform 0.2s var(--ease-out-soft);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}

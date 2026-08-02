@@ -1,0 +1,35 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Build das Cloud Functions
+functions/lib
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Capturas de tela e anexos locais
+Captura de tela*.png
+*.local.png
+
+# Credenciais de service account — nunca commitar
+serviceAccount*.json
+*-firebase-adminsdk-*.json

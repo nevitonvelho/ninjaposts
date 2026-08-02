@@ -1,0 +1,40 @@
+{
+  "name": "criaposts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck",
+    "firebase:rules": "firebase deploy --only firestore:rules,storage",
+    "firebase:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:lifecycle": "gcloud storage buckets update gs://$FIREBASE_STORAGE_BUCKET --lifecycle-file=firebase/storage.lifecycle.json",
+    "firebase:emulators": "firebase emulators:start"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.121",
+    "@nuxt/icon": "^2.4.1",
+    "@pinia/nuxt": "^1.0.1",
+    "@vueuse/core": "^14.4.0",
+    "@vueuse/nuxt": "^14.4.0",
+    "firebase": "^12.17.0",
+    "firebase-admin": "^14.2.0",
+    "nuxt": "^4.5.1",
+    "openai": "^7.3.0",
+    "pinia": "^4.0.2",
+    "tailwind-merge": "^3.6.0",
+    "vue": "^3.5.40",
+    "vue-router": "^5.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "firebase-tools": "^15.25.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.9"
+  }
+}

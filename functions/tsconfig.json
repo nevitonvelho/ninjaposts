@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2023",
+    "lib": ["es2023"],
+    "moduleResolution": "node",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "outDir": "lib",
+    /**
+     * `rootDir` acima do pacote de propósito: as Functions consomem `shared/`
+     * (§0.6), que vive fora desta pasta. O TypeScript compila os dois para
+     * dentro de `lib/` preservando a hierarquia — por isso o `main` do
+     * package.json aponta para `lib/functions/src/index.js`.
+     *
+     * O deploy sobe só esta pasta, e `lib/shared/*.js` já vai junto. A
+     * alternativa seria copiar `shared/` num predeploy, criando duas cópias do
+     * mesmo arquivo para divergirem.
+     *
+     * Os imports de `shared/` são **relativos** (`../../../shared/...`), sem
+     * alias: alias de TypeScript não existe em runtime, e o `require` do
+     * arquivo compilado quebraria no Cloud Functions.
+     */
+    "rootDir": ".."
+  },
+  "include": ["src/**/*.ts", "../shared/**/*.ts"],
+  "exclude": ["lib", "node_modules"]
+}
