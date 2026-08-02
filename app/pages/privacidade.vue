@@ -7,7 +7,7 @@
  */
 definePageMeta({ layout: 'default' })
 useHead({
-  title: 'Política de Privacidade — CriaPosts',
+  title: 'Política de Privacidade — NinjaPosts',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 </script>
@@ -68,8 +68,8 @@ useHead({
 
     <p class="mt-10 text-sm text-ink-muted">
       Para solicitar exclusão dos seus dados, escreva para
-      <a href="mailto:contato@criaposts.com.br" class="text-brand-600 underline underline-offset-4">
-        contato@criaposts.com.br
+      <a href="mailto:contato@ninjaposts.com.br" class="text-brand-600 underline underline-offset-4">
+        contato@ninjaposts.com.br
       </a>
       .
     </p>

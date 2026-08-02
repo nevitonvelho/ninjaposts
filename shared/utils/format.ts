@@ -117,8 +117,8 @@ export function truncate(value: string, max: number): string {
   return value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`
 }
 
-/** Nome do arquivo baixado. Ex.: `criaposts-x-bacon-2026-08-01.png`. */
+/** Nome do arquivo baixado. Ex.: `ninjaposts-x-bacon-2026-08-01.png`. */
 export function downloadFileName(product: string, ext: 'png' | 'jpg', date: Date = new Date()): string {
   const day = date.toISOString().slice(0, 10)
-  return `criaposts-${slugify(product) || 'post'}-${day}.${ext}`
+  return `ninjaposts-${slugify(product) || 'post'}-${day}.${ext}`
 }

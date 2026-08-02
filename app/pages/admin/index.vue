@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'admin' })
-useHead({ title: 'Administração — CriaPosts' })
+useHead({ title: 'Administração — NinjaPosts' })
 </script>
 
 <template>

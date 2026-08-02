@@ -1,7 +1,7 @@
 rules_version = '2';
 
 /**
- * Security Rules do CriaPosts — ver docs/ARCHITECTURE.md §2.9
+ * Security Rules do NinjaPosts — ver docs/ARCHITECTURE.md §2.9
  *
  * Regra de ouro: tudo que envolve dinheiro ou custo de API é escrito
  * exclusivamente pelo Admin SDK. O cliente nunca escreve `credits`,

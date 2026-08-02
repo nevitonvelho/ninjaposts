@@ -10,7 +10,7 @@
 import { STATUS_COPY, STYLE_LIST } from '#shared/constants'
 
 definePageMeta({ layout: 'default' })
-useHead({ title: 'Design System — CriaPosts' })
+useHead({ title: 'Design System — NinjaPosts' })
 
 const tab = ref('acoes')
 
@@ -59,7 +59,7 @@ async function simularExclusao() {
       <UiBadge tone="brand" icon="lucide:palette">Etapa 2</UiBadge>
       <h1 class="mt-4 text-3xl font-semibold tracking-tight">Design System</h1>
       <p class="mt-2 text-ink-muted">
-        Componentes base do CriaPosts, com os estados que o fluxo feliz esconde.
+        Componentes base do NinjaPosts, com os estados que o fluxo feliz esconde.
       </p>
     </header>
 

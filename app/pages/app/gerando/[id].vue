@@ -25,7 +25,7 @@ useHead({
   title: () =>
     isActive.value
       ? `${progress.value}% — Gerando sua arte`
-      : `${copy.value.title} — CriaPosts`,
+      : `${copy.value.title} — NinjaPosts`,
 })
 </script>
 

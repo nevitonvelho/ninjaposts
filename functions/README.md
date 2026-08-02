@@ -1,6 +1,6 @@
 # Cloud Functions
 
-Trabalho de background do CriaPosts. A API HTTP **não** está aqui — ela é o
+Trabalho de background do NinjaPosts. A API HTTP **não** está aqui — ela é o
 servidor Nitro do Nuxt (§0.2 da arquitetura).
 
 | Função | Gatilho | O que faz |

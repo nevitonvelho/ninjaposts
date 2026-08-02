@@ -1,6 +1,6 @@
 {
-  "name": "criaposts-functions",
-  "description": "Worker de geração e rotinas de manutenção do CriaPosts",
+  "name": "ninjaposts-functions",
+  "description": "Worker de geração e rotinas de manutenção do NinjaPosts",
   "private": true,
   "type": "commonjs",
   "main": "lib/functions/src/index.js",

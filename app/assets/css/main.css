@@ -24,7 +24,7 @@
   --color-ink-subtle: #a1a1aa;
   --color-ink-inverse: #fafafa;
 
-  /* Marca — violeta→índigo, usado com parcimônia: CTA e estado ativo */
+  /* Marca — violeta, usado com parcimônia: CTA e estado ativo */
   --color-brand-50: #f5f3ff;
   --color-brand-100: #ede9fe;
   --color-brand-200: #ddd6fe;
@@ -35,6 +35,23 @@
   --color-brand-700: #6d28d9;
   --color-brand-800: #5b21b6;
   --color-brand-900: #4c1d95;
+
+  /**
+   * Acentos da logo — as duas paradas que fecham o gradiente do wordmark,
+   * amostradas do próprio arquivo: violeta (já é o `brand-600`) → magenta →
+   * laranja.
+   *
+   * Ficam fora da escala `brand` de propósito. São pontos fixos de um
+   * gradiente, não uma rampa de tons: não existe "magenta-100" para fundo nem
+   * "magenta-900" para texto, e fingir que existe convidaria a usá-los como
+   * cor de interface. Aqui eles só desenham a marca.
+   *
+   * E não reaproveitam `--color-info`: aquele azul é o estado *informação* dos
+   * badges. Pintá-lo de laranja para fechar o gradiente colidiria com
+   * `--color-warning` e faria um aviso parecer um recado.
+   */
+  --color-accent-magenta: #e63a8e;
+  --color-accent-orange: #fd9029;
 
   /* Estados */
   --color-success: #16a34a;
@@ -175,8 +192,8 @@
   background-image: linear-gradient(
     120deg,
     var(--color-brand-600),
-    var(--color-brand-400) 60%,
-    var(--color-info)
+    var(--color-accent-magenta) 55%,
+    var(--color-accent-orange)
   );
   background-clip: text;
   -webkit-background-clip: text;

@@ -3,7 +3,7 @@ import { registerSchema } from '#shared/utils/validation'
 import { SIGNUP_BONUS_CREDITS } from '#shared/constants'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
-useHead({ title: 'Criar conta — CriaPosts' })
+useHead({ title: 'Criar conta — NinjaPosts' })
 
 const { register, loginWithGoogle, redirectTarget } = useAuth()
 

@@ -2,7 +2,7 @@
 import type { CreateGenerationBody, CreateGenerationResponse } from '#shared/types/api'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
-useHead({ title: 'Criar post — CriaPosts' })
+useHead({ title: 'Criar post — NinjaPosts' })
 
 const generator = useGeneratorStore()
 const auth = useAuthStore()

@@ -9,26 +9,42 @@ withDefaults(defineProps<{ size?: 'sm' | 'md' | 'lg'; showText?: boolean; to?: s
   showText: true,
 })
 
-const MARK = { sm: 'size-7 rounded-lg', md: 'size-9 rounded-xl', lg: 'size-11 rounded-xl' } as const
+/**
+ * A marca é o mascote recortado de `public/logo.png`, com fundo transparente.
+ *
+ * Sem moldura, sem sombra e sem raio próprios: a logo **já** traz a moldura
+ * arredondada e o balão como parte do desenho. Embrulhá-la num quadrado
+ * colorido, como era com o ícone genérico, desenharia uma segunda moldura em
+ * volta da primeira.
+ *
+ * O wordmark é texto, não imagem: fica nítido em qualquer DPI, acompanha o
+ * tamanho da fonte e continua selecionável. As duas cores repetem o arquivo —
+ * `ninja` na cor da tinta, `posts` no gradiente violeta→magenta→laranja.
+ */
+const MARK = { sm: 'size-7', md: 'size-9', lg: 'size-11' } as const
 const TEXT = { sm: 'text-base', md: 'text-lg', lg: 'text-xl' } as const
-const ICON = { sm: 'size-4', md: 'size-5', lg: 'size-6' } as const
 </script>
 
 <template>
   <component :is="to ? NuxtLink : 'span'" :to="to" class="inline-flex items-center gap-2.5">
-    <span
-      :class="
-        cn(
-          'grid place-items-center bg-gradient-to-br from-brand-600 to-info text-white shadow-soft',
-          MARK[size],
-        )
-      "
+    <!--
+      `alt` só descreve quando o texto está escondido. Com o wordmark visível ao
+      lado, uma descrição aqui faria o leitor de tela anunciar "ninjaposts"
+      duas vezes seguidas.
+    -->
+    <img
+      src="/mark.png"
+      :alt="showText ? '' : 'ninjaposts'"
+      width="256"
+      height="256"
+      :class="cn('shrink-0 object-contain', MARK[size])"
     >
-      <Icon name="lucide:sparkles" :class="ICON[size]" />
-    </span>
 
-    <span v-if="showText" :class="cn('font-semibold tracking-tight text-ink', TEXT[size])">
-      CriaPosts
+    <span
+      v-if="showText"
+      :class="cn('font-semibold lowercase tracking-tight', TEXT[size])"
+    >
+      <span class="text-ink">ninja</span><span class="text-gradient-brand">posts</span>
     </span>
   </component>
 </template>

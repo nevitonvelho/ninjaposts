@@ -2,7 +2,7 @@
 import { CREDIT_COST_PER_GENERATION, PACK_LIST, packSavings, pricePerCredit } from '#shared/constants'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
-useHead({ title: 'Créditos — CriaPosts' })
+useHead({ title: 'Créditos — NinjaPosts' })
 
 const auth = useAuthStore()
 const { balance, ready } = useCredits()

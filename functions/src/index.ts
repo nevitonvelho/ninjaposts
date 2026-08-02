@@ -1,5 +1,5 @@
 /**
- * Cloud Functions do CriaPosts.
+ * Cloud Functions do NinjaPosts.
  *
  * Três funções, três responsabilidades:
  *

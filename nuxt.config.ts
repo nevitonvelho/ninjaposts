@@ -76,7 +76,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'pt-BR' },
-      title: 'CriaPosts — Artes profissionais para redes sociais com IA',
+      title: 'NinjaPosts — Artes profissionais para redes sociais com IA',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
@@ -88,7 +88,12 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#ffffff' },
       ],
       link: [
+        // Os três apontam para o mesmo mascote. O `.ico` é o fallback de quem
+        // não lê SVG; o apple-touch-icon vai sobre fundo branco porque o iOS
+        // preenche transparência com preto ao salvar na tela de início.
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {

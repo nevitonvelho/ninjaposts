@@ -2,7 +2,7 @@
 import { emailSchema } from '#shared/utils/validation'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
-useHead({ title: 'Recuperar senha — CriaPosts' })
+useHead({ title: 'Recuperar senha — NinjaPosts' })
 
 const { resetPassword } = useAuth()
 

@@ -8,7 +8,7 @@
  */
 definePageMeta({ layout: 'default' })
 useHead({
-  title: 'Termos de Uso — CriaPosts',
+  title: 'Termos de Uso — NinjaPosts',
   meta: [{ name: 'robots', content: 'noindex' }],
 })
 </script>
@@ -24,7 +24,7 @@ useHead({
       <div class="space-y-1">
         <p class="font-medium text-ink">Documento em elaboração</p>
         <p class="text-ink-muted">
-          Os Termos de Uso do CriaPosts ainda estão sendo redigidos e serão publicados aqui antes
+          Os Termos de Uso do NinjaPosts ainda estão sendo redigidos e serão publicados aqui antes
           do lançamento. Enquanto isso, o serviço está em desenvolvimento e não deve ser usado em
           produção.
         </p>
@@ -33,8 +33,8 @@ useHead({
 
     <p class="mt-8 text-sm text-ink-muted">
       Dúvidas? Escreva para
-      <a href="mailto:contato@criaposts.com.br" class="text-brand-600 underline underline-offset-4">
-        contato@criaposts.com.br
+      <a href="mailto:contato@ninjaposts.com.br" class="text-brand-600 underline underline-offset-4">
+        contato@ninjaposts.com.br
       </a>
       .
     </p>

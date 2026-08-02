@@ -111,7 +111,7 @@ export interface GeneratorDraft {
 }
 
 /** A versão no nome invalida rascunhos antigos quando o formato do draft mudar. */
-const DRAFT_KEY = 'criaposts:generator-draft:v1'
+const DRAFT_KEY = 'ninjaposts:generator-draft:v1'
 
 export function emptyDraft(): GeneratorDraft {
   return {

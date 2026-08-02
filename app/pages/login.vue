@@ -2,7 +2,7 @@
 import { loginSchema } from '#shared/utils/validation'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
-useHead({ title: 'Entrar — CriaPosts' })
+useHead({ title: 'Entrar — NinjaPosts' })
 
 const { loginWithEmail, loginWithGoogle, redirectTarget } = useAuth()
 

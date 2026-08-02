@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app', middleware: 'auth' })
-useHead({ title: 'Histórico — CriaPosts' })
+useHead({ title: 'Histórico — NinjaPosts' })
 </script>
 
 <template>

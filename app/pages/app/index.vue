@@ -2,7 +2,7 @@
 import { CREDIT_COST_PER_GENERATION } from '#shared/constants'
 
 definePageMeta({ layout: 'app', middleware: 'auth' })
-useHead({ title: 'Início — CriaPosts' })
+useHead({ title: 'Início — NinjaPosts' })
 
 const auth = useAuthStore()
 const { items, status, isEmpty, missingIndex, error } = useRecentGenerations(6)

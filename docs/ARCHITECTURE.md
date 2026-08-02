@@ -1,4 +1,4 @@
-# CriaPosts — Arquitetura
+# NinjaPosts — Arquitetura
 
 > Documento vivo. Toda decisão técnica relevante mora aqui.
 > Stack: Nuxt 4 · Vue 3 · TypeScript · TailwindCSS · Firebase (Auth, Firestore, Storage, Functions, Hosting) · Pinia · VueUse · OpenAI.
