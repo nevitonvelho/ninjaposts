@@ -34,9 +34,12 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Privado — só existe no servidor.
-    openaiApiKey: '',
-    openaiBriefModel: 'gpt-5',
-    openaiImageModel: 'gpt-image-1',
+    /**
+     * A OpenAI é chamada só pelo worker (Cloud Function), que lê a chave do
+     * Secret Manager. Não há `openaiApiKey` aqui de propósito: uma variável que
+     * existe na config e não é lida por ninguém vira a pior pista possível —
+     * alguém preenche, o build sobe, e a geração falha do mesmo jeito.
+     */
     firebaseProjectId: '',
     firebaseClientEmail: '',
     firebasePrivateKey: '',

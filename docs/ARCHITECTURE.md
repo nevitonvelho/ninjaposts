@@ -16,7 +16,18 @@
 
 **Por quê não SSR completo?** SSR + Firebase Auth exige *session cookies* (troca do ID token por cookie via Admin SDK, refresh, revogação) — muita complexidade e latência para zero ganho, já que a área logada nunca é indexada. Com SPA, o Firebase Auth Web SDK cuida de sessão/refresh sozinho e mandamos o ID token no header `Authorization` para a API.
 
-**Consequência:** o build é estático → Firebase Hosting serve direto da CDN, sem cold start no carregamento da página. Só as chamadas de API tocam servidor.
+**Consequência:** o build é estático → a CDN serve direto, sem cold start no carregamento da página. Só as chamadas de API tocam servidor.
+
+**Onde cada coisa roda (decidido em 01/08/2026):**
+
+| Alvo | O que hospeda | Deploy |
+|---|---|---|
+| **Vercel** | App Nuxt: frontend + rotas `server/api` | `git push` |
+| **Firebase** | Firestore, Storage, rules, índices e as Cloud Functions de background | `npx firebase deploy` |
+
+São **dois deploys**, e a divisão define onde cada segredo vive: a chave da OpenAI fica no Secret Manager do Google (só o worker chama a OpenAI), enquanto credencial do Admin SDK e token do webhook ficam nas variáveis da Vercel.
+
+Uma consequência não óbvia: na Vercel **não existe Application Default Credentials**. `NUXT_FIREBASE_CLIENT_EMAIL` e `NUXT_FIREBASE_PRIVATE_KEY` passam a ser obrigatórios — sem eles, `verifyIdToken` falha e toda rota autenticada responde erro de servidor, mesmo funcionando na máquina do dev (onde o `gcloud auth` cobre o buraco).
 
 ### 0.2 Backend: Nitro (`server/api`) + Cloud Functions de background
 
@@ -24,10 +35,10 @@ Duas camadas com responsabilidades distintas:
 
 | Camada | Onde roda | Responsabilidade | Timeout |
 |---|---|---|---|
-| **Nitro API** (`server/api/**`) | Cloud Function `server` (via preset `firebase`, gen2) | Requisições curtas e síncronas: criar job, CRUD, checkout, webhooks | 60s (limite do Hosting) |
+| **Nitro API** (`server/api/**`) | Vercel Functions (preset `vercel` do Nitro) | Requisições curtas e síncronas: criar job, CRUD, webhooks | 60s no Hobby |
 | **Functions de background** (`functions/`) | Cloud Functions gen2 dedicadas | Trabalho pesado e assíncrono: geração de imagem, triggers, cron | até 540s |
 
-> O `server/` do Nuxt *é* Cloud Functions — o preset `firebase` do Nitro empacota o servidor Nuxt numa função. Não há duplicação de stack.
+> O `server/` do Nuxt vira função da Vercel no deploy; as Functions do Firebase existem **só** para o trabalho de background. O corte entre as duas não é preferência de plataforma: é o teto de 60s de qualquer função HTTP contra uma geração que leva de 20s a 90s (§0.3).
 
 ### 0.3 Geração de imagem é **assíncrona por job**, nunca request/response
 
@@ -114,9 +125,10 @@ criaposts/
 │   └── utils/                    # firebase-admin, auth guard, erros
 ├── functions/                    # ← Cloud Functions de background (pacote próprio)
 │   └── src/
-│       ├── triggers/             # onGenerationCreated, onUserCreated
-│       ├── scheduled/            # reset mensal, agregação de stats
-│       └── services/             # openai, storage, image
+│       ├── lib/                  # admin SDK, secrets, região
+│       ├── triggers/             # onGenerationCreated
+│       ├── scheduled/            # cleanupExpiredGenerations, reconcileStuckJobs
+│       └── services/             # openai, prompt, image, storage, job, cost
 ├── firebase/                     # config de infra
 │   ├── firestore.rules
 │   ├── firestore.indexes.json
@@ -315,9 +327,10 @@ interface CreditLedgerDoc {
 | `creditLedger` | `ownerId ASC, createdAt DESC` |
 | `purchases` | `ownerId ASC, createdAt DESC` |
 | `purchases` | `email ASC, creditedAt ASC` (reivindicação de compra órfã) |
+| `generations` | `status ASC, updatedAt ASC` (cron de jobs travados) |
 | `templates` | `isActive ASC, sortOrder ASC` |
 
-Além dos índices, `firestore.indexes.json` publica um `fieldOverride` com `"ttl": true` em `generations.expiresAt` — é o que liga a política de retenção do §0.5.
+Além dos índices, `firestore.indexes.json` publica um `fieldOverride` com `"ttl": true` em `generations.expiresAt` — é o que liga a política de retenção do §0.5. O override **precisa** listar os índices `ASCENDING`/`DESCENDING` explicitamente: `"indexes": []` desligaria a indexação do campo, e a rotina de limpeza consulta justamente `where('expiresAt', '<=', now)`.
 
 ### 2.9 Security Rules — princípios
 
@@ -453,7 +466,7 @@ vezes não.
 | `useAuth()` | `user`, `isLoggedIn`, `loginGoogle`, `loginEmail`, `register`, `logout`, `resetPassword` |
 | `useApi()` | `$fetch` com `Authorization: Bearer <idToken>` e tratamento de erro padronizado |
 | `useUserDoc()` | Assinatura em tempo real de `users/{uid}` |
-| `useGeneration(id)` | `onSnapshot` de um job + estados derivados |
+| `useGeneration(id)` ✅ | `onSnapshot` de um job + estados derivados |
 | `useGenerations(filters)` | Lista paginada com cursor |
 | `useCredits()` ✅ | Saldo, `canGenerate`, custo fixo por arte |
 | `useLogoUpload()` ✅ | Upload da logo no Storage, com progresso e validação |
@@ -725,11 +738,11 @@ Acessibilidade não é etapa final: contraste AA, foco visível, navegação por
 | ~~**4**~~ | ~~Layouts e shell do app (navbar, sidebar) + dashboard com dados reais~~ ✅ | 2, 3 |
 | **5** | Firestore rules ✅, índices ✅, Storage rules ✅, bootstrap de `users/{uid}` ✅, seed de templates ⏳ | 3 |
 | ~~**6**~~ | ~~`PromptForm` completo com validação e rascunho persistido~~ ✅ (`/app/criar`) | 2, 4 |
-| **7** | Backend de geração: `server/api`, transação de créditos, worker, OpenAI, cron de retenção | 5, 6 |
-| **8** | Progresso em tempo real + tela de resultado + downloads + contagem regressiva de 24h | 7 |
+| ~~**7**~~ | ~~Backend de geração: `server/api`, transação de créditos, worker, OpenAI, cron de retenção~~ ✅ | 5, 6 |
+| **8** | Tela de resultado completa (downloads PNG/JPG, copiar, gerar novamente) — o progresso em tempo real já está de pé | 7 |
 | **9** | Histórico, projetos e perfil | 8 |
 | **10** | Créditos: página de pacotes ✅, webhook Kiwify ✅, reivindicação por e-mail ✅, extrato de compras ⏳ | 7 |
 | **11** | Admin: agregados, painéis, ajustes manuais | 10 |
-| **12** | Landing page + SEO + deploy no Firebase Hosting | todas |
+| **12** | Landing page + SEO + deploy (app na Vercel, background no Firebase) | todas |
 
 Cada etapa fecha funcionando e testável — nada de "só funciona no fim".
