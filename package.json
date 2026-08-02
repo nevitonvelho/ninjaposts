@@ -14,6 +14,9 @@
     "firebase:lifecycle": "gcloud storage buckets update gs://$FIREBASE_STORAGE_BUCKET --lifecycle-file=firebase/storage.lifecycle.json",
     "firebase:emulators": "firebase emulators:start"
   },
+  "overrides": {
+    "jose": "^5.10.0"
+  },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.121",
     "@nuxt/icon": "^2.4.1",

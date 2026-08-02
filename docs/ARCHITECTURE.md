@@ -38,6 +38,8 @@ Duas camadas com responsabilidades distintas:
 | **Nitro API** (`server/api/**`) | Vercel Functions (preset `vercel` do Nitro) | Requisições curtas e síncronas: criar job, CRUD, webhooks | 60s no Hobby |
 | **Functions de background** (`functions/`) | Cloud Functions gen2 dedicadas | Trabalho pesado e assíncrono: geração de imagem, triggers, cron | até 540s |
 
+**`overrides.jose` no `package.json`.** `firebase-admin` puxa `jwks-rsa`, que é CommonJS e faz `require('jose')` — mas `jose@6` é ESM puro, sem build CJS. Node 22.12+ tolera `require()` de ESM; o runtime da Vercel não, e o resultado era `ERR_REQUIRE_ESM` no *carregamento do módulo* — ou seja, **toda** rota da API respondia 500 antes mesmo de executar, inclusive as que só devolveriam 401. Travar `jose` em `^5.10.0`, que exporta condição `require`, elimina o conflito em qualquer runtime. Sintoma a reconhecer: erro que só aparece em produção e some localmente é quase sempre diferença de versão de Node, não de configuração.
+
 > O `server/` do Nuxt vira função da Vercel no deploy; as Functions do Firebase existem **só** para o trabalho de background. O corte entre as duas não é preferência de plataforma: é o teto de 60s de qualquer função HTTP contra uma geração que leva de 20s a 90s (§0.3).
 
 ### 0.3 Geração de imagem é **assíncrona por job**, nunca request/response
