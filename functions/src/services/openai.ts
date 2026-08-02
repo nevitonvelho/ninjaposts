@@ -178,6 +178,20 @@ async function toFile(buffer: Buffer, name: string, type: string) {
 }
 
 /**
+ * Modelos que aceitam `input_fidelity` em `images.edit`.
+ *
+ * Não é preciosismo: mandar o parâmetro para um modelo que não o conhece é
+ * **400 na hora**, e derruba toda geração com logo. Foi o que aconteceu ao
+ * trocar para `gpt-image-2` — `The model 'gpt-image-2' does not support the
+ * 'input_fidelity' parameter`.
+ *
+ * Lista de permissão, e não de bloqueio: modelo novo entra sem o parâmetro e
+ * gera arte com fidelidade padrão. O oposto — assumir que aceita — quebra a
+ * geração inteira até alguém ler o log.
+ */
+const SUPPORTS_INPUT_FIDELITY = new Set(['gpt-image-1', 'gpt-image-1.5', 'gpt-image-1-mini'])
+
+/**
  * Etapa RENDER — uma passada só, sempre.
  *
  * Sem logo, `images.generate`. Com logo, `images.edit` levando a marca como
@@ -216,7 +230,7 @@ export async function renderImage(
           prompt,
           size,
           quality,
-          input_fidelity: 'high',
+          ...(SUPPORTS_INPUT_FIDELITY.has(model) ? { input_fidelity: 'high' as const } : {}),
         })
       : await openai().images.generate({
           model,
