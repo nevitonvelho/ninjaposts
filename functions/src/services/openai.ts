@@ -198,7 +198,7 @@ export async function renderImage(
 
   let art: Buffer
   let revisedPrompt: string | null
-  let costUsd = estimateImageCost(size, quality)
+  let costUsd = estimateImageCost(size, quality, model)
 
   try {
     const response = await openai().images.generate({

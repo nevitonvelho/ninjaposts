@@ -16,12 +16,30 @@ const TEXT_PRICE_PER_MILLION = {
   output: 10,
 } as const
 
-/** USD por imagem, por qualidade — a de 1024×1024; formatos maiores custam mais. */
+/**
+ * USD por imagem, por qualidade — a de 1024×1024; formatos maiores custam mais.
+ *
+ * **Calibrada para `gpt-image-1`.** Com outro modelo configurado, estes números
+ * deixam de valer.
+ */
 const IMAGE_PRICE = {
   low: 0.011,
   medium: 0.042,
   high: 0.167,
 } as const
+
+/** O modelo para o qual `IMAGE_PRICE` foi levantada. */
+const PRICED_IMAGE_MODEL = 'gpt-image-1'
+
+/**
+ * Avisa uma vez por instância que a estimativa está descalibrada.
+ *
+ * Uma vez, e não a cada geração: o log de uma função que processa milhares de
+ * jobs não pode virar a mesma linha repetida. E avisar é obrigatório — uma
+ * estimativa silenciosamente errada alimenta o teto diário de gasto, que é o
+ * que deveria impedir o cartão de sangrar.
+ */
+let avisouModelo = false
 
 /** Multiplicador por tamanho de render, relativo ao quadrado. */
 const SIZE_MULTIPLIER: Record<string, number> = {
@@ -37,6 +55,19 @@ export function estimateTextCost(tokensIn: number, tokensOut: number): number {
   )
 }
 
-export function estimateImageCost(size: string, quality: keyof typeof IMAGE_PRICE): number {
+export function estimateImageCost(
+  size: string,
+  quality: keyof typeof IMAGE_PRICE,
+  model?: string,
+): number {
+  if (model && model !== PRICED_IMAGE_MODEL && !avisouModelo) {
+    avisouModelo = true
+    console.warn(
+      `[cost] estimativa calibrada para ${PRICED_IMAGE_MODEL}, mas o modelo em uso é `
+      + `${model}. O custo por arte e o teto diário de gasto estão errados até `
+      + 'IMAGE_PRICE ser atualizada com a tabela de preços deste modelo.',
+    )
+  }
+
   return IMAGE_PRICE[quality] * (SIZE_MULTIPLIER[size] ?? 1)
 }
