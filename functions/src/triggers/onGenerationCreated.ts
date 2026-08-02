@@ -71,7 +71,7 @@ export const onGenerationCreated = onDocumentCreated(
       // --- RENDER ---
       await advance(generationId, 'rendering')
       const logo = input.logoPath ? await downloadLogo(input.logoPath) : null
-      const render = await withRetry(() => renderImage(input, brief.brief), 'render')
+      const render = await withRetry(() => renderImage(input, brief.brief, logo), 'render')
 
       costUsd += render.costUsd
 

@@ -171,44 +171,61 @@ export interface RenderResult {
   logoIntegrated: boolean
 }
 
+/** `toFile` da própria SDK — evita montar `FormData` na mão. */
+async function toFile(buffer: Buffer, name: string, type: string) {
+  const { toFile: openaiToFile } = await import('openai')
+  return openaiToFile(buffer, name, { type })
+}
+
 /**
- * Etapa RENDER — `images.generate`, uma passada só.
+ * Etapa RENDER — uma passada só, sempre.
  *
- * **Nunca `images.edit`**, e por dois motivos distintos, ambos aprendidos caro:
+ * Sem logo, `images.generate`. Com logo, `images.edit` levando a marca como
+ * **referência** — não como tela.
  *
- * 1. Mandando só a logo, o modelo a trata como *tela* e ancora a composição
- *    inteira numa imagem de 200 pixels. A qualidade desaba.
- * 2. Mandando `[arte, logo]` — que é o uso correto do endpoint — ele regenera a
- *    imagem **inteira**, texto incluído. Ou seja, uma segunda chance de
- *    embaralhar o português numa arte que já tinha saído certa. Erro de grafia
- *    é o defeito nº 1 deste produto; não vale trocá-lo por logo com luz.
+ * Essa distinção é o aprendizado caro deste arquivo. `images.edit` recebendo só
+ * uma logo já ancorou a composição inteira num arquivo de 200 pixels e derrubou
+ * a qualidade. O que mudou desde então: o modelo passou a ser `gpt-image-2`, e
+ * `input_fidelity: 'high'` — que nunca havia sido enviado — instrui o endpoint a
+ * preservar a referência em vez de reinterpretá-la. O prompt reforça em texto
+ * que a imagem anexa é a logo, e não o fundo.
  *
- * A logo entra por composição no `sharp`, chapada — que é, aliás, o que a peça
- * de referência do próprio cliente faz no canto superior. Aqui ela nem chega:
- * quem avisa o prompt para reservar o canto é `input.logoPath`.
+ * Duas passadas foram descartadas de propósito: com `gpt-image-2` a ~228s por
+ * chamada, duas encostariam nos 540s de timeout da função — e job que estoura o
+ * timeout morre preso, esperando o estorno do reconciliador.
  */
 export async function renderImage(
   input: GenerationInput,
   brief: CreativeBrief,
+  logo: Buffer | null,
 ): Promise<RenderResult> {
   const model = imageModel.value()
   const size = FORMATS[input.format].renderSize
-  const prompt = buildImagePrompt(brief, input)
+  const prompt = buildImagePrompt(brief, input, Boolean(logo))
   const quality = 'high' as const
 
   let art: Buffer
   let revisedPrompt: string | null
-  let costUsd = estimateImageCost(size, quality, model)
+  const costUsd = estimateImageCost(size, quality, model)
 
   try {
-    const response = await openai().images.generate({
-      model,
-      prompt,
-      size,
-      quality,
-      n: 1,
-      output_format: 'png',
-    })
+    const response = logo
+      ? await openai().images.edit({
+          model,
+          image: [await toFile(logo, 'logo.png', 'image/png')],
+          prompt,
+          size,
+          quality,
+          input_fidelity: 'high',
+        })
+      : await openai().images.generate({
+          model,
+          prompt,
+          size,
+          quality,
+          n: 1,
+          output_format: 'png',
+        })
 
     const first = response.data?.[0]
     if (!first?.b64_json) {
@@ -223,18 +240,9 @@ export async function renderImage(
   }
 
   /**
-   * A 2ª passada de integração da logo foi **removida**, e o motivo é caro de
-   * reaprender: `images.edit` regenera a imagem **inteira**, texto incluído.
-   * Ela dava uma segunda chance de embaralhar o português numa arte que já
-   * tinha saído correta — e erro de grafia é o defeito nº 1 relatado.
-   *
-   * A troca é consciente: perde-se a logo recebendo a luz da cena, ganha-se
-   * texto estável e metade do custo. A logo entra chapada, por composição no
-   * `sharp` — que, aliás, é o que a própria peça de referência faz no canto.
-   *
-   * Se voltar algum dia, que seja atrás de um tier pago e só em formatos sem
-   * texto pesado.
+   * Com logo, ela já saiu desenhada pelo modelo — `logoIntegrated` impede o
+   * `sharp` de colar uma segunda por cima.
    */
-  return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: false }
+  return { png: art, promptUsed: prompt, revisedPrompt, costUsd, model, logoIntegrated: Boolean(logo) }
 }
 

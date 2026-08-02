@@ -206,7 +206,12 @@ export const BRIEF_SCHEMA = {
  *   rótulos de zona. Cada rótulo a mais é uma instrução a mais competindo com a
  *   tarefa de grafar as palavras corretamente.
  */
-export function buildImagePrompt(brief: CreativeBrief, input: GenerationInput): string {
+export function buildImagePrompt(
+  brief: CreativeBrief,
+  input: GenerationInput,
+  /** A logo segue anexada à chamada, em vez de ser composta depois. */
+  logoComoReferencia = false,
+): string {
   const format = FORMATS[input.format]
   const partes: string[] = [
     `Você é um diretor de arte premiado especializado em campanhas publicitárias para ${input.niche}.`,
@@ -250,8 +255,24 @@ export function buildImagePrompt(brief: CreativeBrief, input: GenerationInput): 
     )
   }
 
-  if (input.logoPath) {
-    // A logo é composta com `sharp` depois. Aqui só se reserva o lugar — e se
+  if (logoComoReferencia) {
+    /**
+     * A logo vai anexada à chamada, e o risco desta rota é o modelo tratar a
+     * imagem recebida como **tela** — foi o que aconteceu quando ela era a
+     * única entrada, e a composição inteira ficou ancorada num arquivo de 200
+     * pixels. As duas últimas frases existem só para desfazer essa leitura.
+     */
+    partes.push(
+      '',
+      'LOGO: a imagem anexada é a LOGO da marca. Ela NÃO é o fundo, NÃO é a base'
+      + ' da arte e NÃO deve ser reinterpretada ou redesenhada.'
+      + ' Aplique-a no canto superior esquerdo exatamente como está: mesmas formas,'
+      + ' mesmas proporções, mesmas cores, sem distorcer e sem recolorir, com respiro'
+      + ' ao redor e sem competir com o título.'
+      + ' Todo o restante da arte deve ser criado do zero conforme descrito acima.',
+    )
+  } else if (input.logoPath) {
+    // A logo será composta com `sharp` depois. Aqui só se reserva o lugar — e se
     // proíbe o modelo de inventar uma marca, que ele faz se o canto ficar vazio.
     partes.push(
       '',
