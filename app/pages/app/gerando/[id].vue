@@ -6,7 +6,7 @@ definePageMeta({ layout: 'app', middleware: 'auth' })
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 
-const { generation, status, error, isActive, copy, progress } = useGeneration(id)
+const { generation, status, error, isActive, isSlow, copy, progress } = useGeneration(id)
 
 const output = computed(() => generation.value?.output ?? null)
 const { url: imageUrl } = useStorageUrl(() => output.value?.imagePath ?? null)
@@ -22,10 +22,14 @@ const expiresIn = computed(() => {
  * abas sem precisar voltar.
  */
 useHead({
-  title: () =>
-    isActive.value
-      ? `${progress.value}% — Gerando sua arte`
-      : `${copy.value.title} — NinjaPosts`,
+  title: () => {
+    if (!isActive.value) return `${copy.value.title} — NinjaPosts`
+    // Em segundo plano, a porcentagem parada não distingue "trabalhando" de
+    // "travado" — é exatamente onde a espera vira sensação de loop infinito.
+    return isSlow.value
+      ? `Demorando mais que o normal — ${progress.value}%`
+      : `${progress.value}% — Gerando sua arte`
+  },
 })
 </script>
 
@@ -69,7 +73,33 @@ useHead({
 
         <UiProgress :value="progress" label="Progresso da geração" class="mt-5" />
 
-        <p class="mt-4 text-sm text-ink-subtle">
+        <!--
+          Passado o limite, a frase tranquilizadora vira desinformação: se o
+          worker não pegou o job, "o trabalho continua no servidor" é
+          simplesmente falso. Por isso ela é **substituída**, e não acompanhada
+          de um aviso embaixo — deixar as duas na tela faria o usuário escolher
+          em qual acreditar.
+        -->
+        <div
+          v-if="isSlow"
+          class="mt-4 flex gap-3 rounded-lg border border-warning/20 bg-warning-soft p-4 text-sm"
+          role="status"
+        >
+          <Icon name="lucide:clock-alert" class="mt-0.5 size-4 shrink-0 text-warning" />
+          <div class="min-w-0 space-y-2">
+            <p class="font-medium text-ink">Isto está demorando mais que o normal</p>
+            <p class="text-ink-muted">
+              Uma arte costuma ficar pronta em menos de dois minutos. Se algo tiver dado errado,
+              seus créditos voltam sozinhos e a arte aparece como falha no histórico — você não
+              perde nada, e não precisa continuar esperando nesta tela.
+            </p>
+            <UiButton to="/app/historico" variant="secondary" size="sm">
+              Ver histórico
+            </UiButton>
+          </div>
+        </div>
+
+        <p v-else class="mt-4 text-sm text-ink-subtle">
           Pode fechar esta aba — o trabalho continua no servidor e a arte fica no seu histórico.
         </p>
       </UiCard>

@@ -22,6 +22,16 @@ export const INPUT_LIMITS = {
 /** Guardas operacionais do worker de geração. */
 export const GENERATION_LIMITS = {
   maxAttempts: 3,
+  /**
+   * Além disso a tela avisa que algo pode ter dado errado.
+   *
+   * Fica **antes** de `stuckAfterMs` de propósito. Uma geração leva de 20s a
+   * 90s, então aos 6 minutos já não há desfecho bom possível — e sem aviso a
+   * tela mostra a mesma barra parada com a mesma mensagem tranquilizadora, o
+   * que lê como travamento do app. O usuário descobre pelo aviso antes de o
+   * sistema agir, e não fica olhando para um spinner adivinhando.
+   */
+  slowAfterMs: 6 * 60 * 1000,
   /** Além disso o job é considerado travado e estornado pelo cron de reconciliação. */
   stuckAfterMs: 10 * 60 * 1000,
   /** Teto global de gasto diário com a API de imagem, em USD. */

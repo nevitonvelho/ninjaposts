@@ -1,5 +1,11 @@
 import type { Unsubscribe } from 'firebase/firestore'
-import { COLLECTIONS, STATUS_COPY, STATUS_PROGRESS, isActiveStatus } from '#shared/constants'
+import {
+  COLLECTIONS,
+  GENERATION_LIMITS,
+  STATUS_COPY,
+  STATUS_PROGRESS,
+  isActiveStatus,
+} from '#shared/constants'
 import type { GenerationDoc } from '#shared/types/generation'
 
 /**
@@ -72,11 +78,39 @@ export function useGeneration(id: MaybeRefOrGetter<string>) {
     return Math.max(doc.value.progress, STATUS_PROGRESS[doc.value.status])
   })
 
+  /**
+   * Passou do tempo em que ainda faz sentido esperar (§7.5).
+   *
+   * O relógio corre a partir do `createdAt` do documento, não da montagem da
+   * tela: quem recarrega a página ou volta pela aba do histórico precisa ver o
+   * mesmo aviso, e não um contador zerado que esconde meia hora de espera.
+   *
+   * Fica pausado enquanto o job não está ativo — um `setInterval` vivo numa
+   * arte já pronta é trabalho que ninguém pediu.
+   *
+   * Depende do relógio do cliente, então adianta o aviso para quem está com a
+   * hora errada. É um aviso, não uma mudança de estado: quem decide estornar é
+   * o `reconcileStuckJobs`, com o relógio do servidor.
+   */
+  const { timestamp: now, pause, resume } = useTimestamp({ interval: 15_000, controls: true })
+
+  watch(isActive, active => (active ? resume() : pause()), { immediate: true })
+
+  const isSlow = computed(() => {
+    if (!isActive.value) return false
+
+    const createdAt = toDate(doc.value?.createdAt)
+    if (!createdAt) return false
+
+    return now.value - createdAt.getTime() >= GENERATION_LIMITS.slowAfterMs
+  })
+
   return {
     generation: doc,
     status: readonly(status),
     error: readonly(error),
     isActive,
+    isSlow,
     copy,
     progress,
   }

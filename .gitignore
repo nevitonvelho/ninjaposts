@@ -26,6 +26,11 @@ logs
 .env.*
 !.env.example
 
+# Exceção: parâmetros das Functions (nomes de modelo, não segredo). Precisam
+# estar versionados, senão todo deploy em máquina limpa falha na resolução dos
+# `defineString`. A chave da OpenAI não está aqui — é `defineSecret`.
+!functions/.env
+
 # Capturas de tela e anexos locais
 Captura de tela*.png
 *.local.png
