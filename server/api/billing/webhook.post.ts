@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     `[webhook] recebido · provider=${provider.id} · ${rawBody.length} bytes`
     + ` · assinatura=${signature ? 'presente' : 'AUSENTE'}`
     + ` · ua=${getRequestHeader(event, 'user-agent') ?? '?'}`
-    + ` · campos=[${describeShape(rawBody)}]`,
+    + ` · ${describeEvent(rawBody)}`,
   )
 
   let normalized: NormalizedPurchaseEvent
@@ -291,6 +291,77 @@ export default defineEventHandler(async (event) => {
     throw internalError(`processamento do webhook ${eventId}`, error)
   }
 })
+
+/**
+ * Campos cujo **valor** pode ir para o log.
+ *
+ * São enumerações e referências do gateway — `paid`, `order_approved`,
+ * `refunded`, o id do pedido —, não dado de pessoa. E são justamente os que
+ * decidem se uma compra vira crédito: sem eles no log, um status novo do
+ * provedor passaria a ser ignorado em silêncio, e a primeira notícia disso
+ * seria um cliente reclamando que pagou e não recebeu.
+ *
+ * Cada entrada repete os **mesmos caminhos alternativos que o parser tenta**.
+ * Consultar só o caminho canônico faria o log dizer "sem campos de
+ * classificação" no caso em que ele é mais necessário — o gateway trocou
+ * `Product` por `product` e nada mais mudou. Logamos o caminho que respondeu,
+ * não o que esperávamos: é ele que diz qual variante chegou.
+ */
+const LOGGABLE_VALUES = [
+  ['order_status', 'status'],
+  ['webhook_event_type', 'event'],
+  ['sale_type'],
+  // Correlaciona esta linha com as de `compra <id>` mais abaixo, e com o painel
+  // da Kiwify. Num evento que morre no parser, é o único fio que sobra.
+  ['order_id', 'id', 'order.order_id', 'order_ref'],
+  // Identificam o produto e o valor — é o que se copia para NUXT_KIWIFY_PRODUCT_*.
+  ['Product.product_id', 'product.product_id', 'product_id'],
+  ['Commissions.charge_amount', 'commissions.charge_amount', 'charge_amount'],
+]
+
+/** Lê `a.b` sem estourar em caminho ausente. */
+function readPath(source: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>(
+    (value, key) =>
+      value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
+    source,
+  )
+}
+
+/**
+ * Primeiro caminho da lista que trouxe um valor escalar, como `caminho=valor`.
+ *
+ * Objeto e array ficam de fora: `String({})` vira `[object Object]`, que não
+ * informa nada, e um aninhado inesperado é justamente o que `describeShape`
+ * já descreve — sem risco de arrastar um `Customer` inteiro para o log.
+ */
+function firstPresent(source: Record<string, unknown>, paths: string[]): string | null {
+  for (const path of paths) {
+    const value = readPath(source, path)
+    if (value === undefined || value === null || value === '') continue
+    if (typeof value === 'object') continue
+    return `${path}=${String(value)}`
+  }
+  return null
+}
+
+/** Resume o evento: os valores que classificam, mais o formato do resto. */
+function describeEvent(rawBody: string): string {
+  try {
+    const parsed = JSON.parse(rawBody) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') {
+      return `campos=[${describeShape(rawBody)}]`
+    }
+
+    const classifiers = LOGGABLE_VALUES.map(paths => firstPresent(parsed, paths))
+      .filter((entry): entry is string => entry !== null)
+      .join(' · ')
+
+    return `${classifiers || 'sem campos de classificação'} · campos=[${describeShape(rawBody)}]`
+  } catch {
+    return `campos=[${describeShape(rawBody)}]`
+  }
+}
 
 /**
  * Descreve o formato do corpo sem revelar conteúdo.
