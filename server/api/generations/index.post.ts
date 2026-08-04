@@ -45,6 +45,17 @@ export default defineEventHandler(async (event): Promise<CreateGenerationRespons
     throw apiError('forbidden', 'Esta logo não pertence à sua conta.')
   }
 
+  /**
+   * `contactItems` **não** é conferido contra o perfil de propósito.
+   *
+   * A checagem da logo existe porque o caminho aponta para o arquivo de outra
+   * pessoa. Aqui não há dado alheio envolvido: o telefone é do próprio usuário,
+   * e ele já poderia escrever qualquer texto na peça por `promotion` ou
+   * `extraInstructions`. Reconciliar com `users/{uid}` só adicionaria uma
+   * leitura e um jeito novo de o formulário falhar quando o perfil muda no meio
+   * do preenchimento.
+   */
+
   if (projectId) {
     const project = await db.collection(COLLECTIONS.projects).doc(projectId).get()
     if (!project.exists || project.get('ownerId') !== context.uid) {

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import type { CreateGenerationBody } from '#shared/types/api'
 // Import explícito em vez de auto-import: `<component :is>` precisa da
-// referência real, e assim o TypeScript confere os quatro nomes no build.
-import PromptStepBusiness from './PromptStepBusiness.vue'
-import PromptStepOffer from './PromptStepOffer.vue'
-import PromptStepStyle from './PromptStepStyle.vue'
-import PromptStepBrand from './PromptStepBrand.vue'
+// referência real, e assim o TypeScript confere os três nomes no build.
+import PromptStepPost from './PromptStepPost.vue'
+import PromptStepArt from './PromptStepArt.vue'
+import PromptStepReview from './PromptStepReview.vue'
 
 /**
  * Orquestra o wizard: navegação, validação por etapa, custo e envio.
@@ -26,10 +25,9 @@ const { confirm } = useDialog()
 const toast = useToast()
 
 const STEP_COMPONENTS = {
-  business: PromptStepBusiness,
-  offer: PromptStepOffer,
-  style: PromptStepStyle,
-  brand: PromptStepBrand,
+  post: PromptStepPost,
+  arte: PromptStepArt,
+  revisao: PromptStepReview,
 } as const
 
 const blocked = computed(() => !canGenerate.value)

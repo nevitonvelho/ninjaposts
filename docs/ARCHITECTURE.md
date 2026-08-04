@@ -183,6 +183,15 @@ interface UserDoc {
     logoPath: string | null       // caminho no Storage, não URL
     colors: string[]              // hex
     defaultStyle: StyleId | null
+    business: {                   // dados do estabelecimento — ver §2.2.1
+      name: string | null
+      whatsapp: string | null
+      phone: string | null
+      address: string | null
+      instagram: string | null
+      website: string | null
+      hours: string | null
+    }
   }
 
   stats: { generations: number; downloads: number; creditsPurchased: number }
@@ -196,6 +205,14 @@ interface UserDoc {
 Guardamos `logoPath` (caminho no Storage) e não a URL: URLs de download podem ser revogadas e não sobrevivem a troca de bucket.
 
 Não há `plan` nem `creditsResetAt`: sem assinatura não existe ciclo a reiniciar. O saldo só muda por compra, geração, estorno ou ajuste manual — e cada mudança deixa rastro em `creditLedger`.
+
+#### 2.2.1 `brand.business` — os dados do estabelecimento
+
+O catálogo dos campos (rótulo, ícone, limite, formatação e se entra marcado por padrão) vive em `shared/constants/business.ts`. Adicionar "PIX" amanhã é **uma entrada nesse array**: o campo aparece no perfil, na lista de seleção da geração e na barra de contato da arte sem tocar em mais nada.
+
+Por que os contatos ficam no perfil e não no formulário de geração: telefone e endereço são exatamente o que um modelo de imagem inventa quando o rodapé fica vazio — e um número inventado numa peça publicada manda o cliente do anunciante para o telefone de outra pessoa. Com a fonte real guardada uma vez, gerar vira uma escolha ("mostrar o WhatsApp neste post?") em vez de redigitação, e o valor grafado na arte nunca passa por um teclado às pressas.
+
+Documentos criados antes deste campo não o têm. Leia sempre por `withBusinessInfo(brand.business)` — nunca direto — e note que a rule aceita `brand` sem `business` justamente para não travar a primeira edição de quem já era cliente.
 
 ### 2.3 `generations/{generationId}` — o coração do sistema
 
@@ -383,7 +400,7 @@ O prefixo `generations/` tem regra de ciclo de vida no bucket (`firebase/storage
 | `/app/post/[id]` | `app` | `auth` | **Resultado**: imagem, legenda, hashtags, downloads |
 | `/app/historico` | `app` | `auth` | Grid com filtros, excluir, duplicar, baixar |
 | `/app/projetos` | `app` | `auth` | Marcas do usuário |
-| `/app/perfil` | `app` | `auth` | Nome, empresa, logo, cores padrão |
+| `/app/perfil` | `app` | `auth` | Nome, empresa, dados do estabelecimento (§2.2.1), logo, cores e estilo padrão |
 | `/app/creditos` | `app` | `auth` | Saldo, pacotes (link Kiwify) e extrato de compras |
 | `/admin` | `admin` | `admin` | Métricas: usuários, gerações, MRR, custo OpenAI |
 | `/admin/usuarios` | `admin` | `admin` | Busca, detalhe, ajuste manual de crédito |
@@ -433,20 +450,33 @@ vezes não.
 | Componente | Responsabilidade |
 |---|---|
 | `PromptForm` ✅ | Orquestra o wizard, valida e dispara a criação do job |
-| `PromptStepBusiness` ✅ | Nicho, produto, descrição |
-| `PromptStepOffer` ✅ | Preço, promoção, CTA |
-| `PromptStepStyle` ✅ | Estilo, rede social, formato (template entra com o seed) |
-| `PromptStepBrand` ✅ | Cores (`BrandColorPicker`), logo (`LogoUpload`) e instruções extras |
+| `PromptStepPost` ✅ | Nicho, produto, descrição + preço/promoção/CTA recolhidos |
+| `PromptStepArt` ✅ | Rede social, formato e estilo (template entra com o seed) |
+| `PromptStepReview` ✅ | Confere marca e contatos vindos do perfil; instruções extras |
+| `ContactPicker` ✅ | Marca quais dados do estabelecimento vão no rodapé da arte |
 | `NicheSelect` ✅ | Campo livre com nichos sugeridos em chips |
 | `SocialNetworkPicker` ✅ | Rede → restringe os formatos possíveis |
 | `StyleGallery` ✅ | Grid visual de estilos, com radio nativo |
-| `BrandColorPicker` ✅ | Paleta com contraste validado (WCAG) |
-| `LogoUpload` ✅ | Upload direto ao Storage, com progresso e preview |
 | `GenerationProgress` | Estados do job com microcopy por etapa |
 | `ResultView` | Composição do resultado |
 | `ImagePreview` | Zoom, formato, download |
 | `CaptionBlock` / `HashtagBlock` | Texto + copiar |
 | `ResultActions` | PNG, JPG, copiar, gerar novamente |
+
+**Três etapas, não quatro.** A antiga `PromptStepBrand` existia para redigitar cores e logo a cada post; com isso guardado no perfil (§2.2), o que sobra é conferência, não formulário. `PromptStepBusiness` e `PromptStepOffer` viraram uma só porque tratam do mesmo assunto e quatro dos seis campos são opcionais — recolhidos atrás de um clique, quem não precisa de preço nem para para pensar.
+
+### 4.3.1 `components/brand/` — reaproveitados entre perfil e gerador
+
+| Componente | Responsabilidade |
+|---|---|
+| `BrandColorPicker` ✅ | Paleta com contraste validado (WCAG) |
+| `BrandLogoUpload` ✅ | Upload direto ao Storage, com progresso e preview |
+
+### 4.3.2 `components/profile/`
+
+| Componente | Responsabilidade |
+|---|---|
+| `ProfileBusinessFields` ✅ | Os campos de `brand.business`, com preview da grafia final |
 
 ### 4.4 Demais
 
@@ -472,6 +502,7 @@ vezes não.
 | `useGenerations(filters)` | Lista paginada com cursor |
 | `useCredits()` ✅ | Saldo, `canGenerate`, custo fixo por arte |
 | `useLogoUpload()` ✅ | Upload da logo no Storage, com progresso e validação |
+| `useProfileForm()` ✅ | Rascunho do perfil, estado sujo e gravação direta em `users/{uid}` |
 | `useDownload()` | Baixar PNG/JPG com nome de arquivo correto |
 | `useClipboard()` | VueUse + toast |
 | `useToast()` / `useDialog()` | APIs imperativas de feedback |
@@ -620,6 +651,10 @@ Ponto de risco conhecido: modelos de imagem ainda erram texto pequeno e distorce
 - **`hybrid`** (v2): a IA gera só a cena/fundo; preço, CTA e logo são compostos deterministicamente com `sharp` a partir do `textOverlay` do brief. Texto sempre perfeito e logo intacta.
 
 Arquitetura já prevê o campo `renderMode` no input; `hybrid` é um branch na etapa PROCESS, sem refatoração.
+
+**A barra de contato não passa pelo modelo de texto.** No modo `ai`, os valores de `input.contactItems` vão para o prompt de imagem direto do documento, e não pelo `textOverlay.contact` do brief. O modelo de texto já recebe ordem de copiar a string literal, mas ele é o elo que "corrige" um DDD ou normaliza um `@` — e aqui um dígito trocado é o pior defeito possível do produto. Como o valor já chega pronto do perfil, não há motivo para deixá-lo passar por uma segunda mão. `textOverlay.contact` continua existindo porque é dele que o `sharp` vai compor o rodapé no modo `hybrid`.
+
+Quando `contactItems` está vazio, o prompt diz explicitamente que a peça **não leva** contato — o padrão do modelo com rodapé vazio é inventar um.
 
 ### 7.5 Falhas, retry e estorno
 

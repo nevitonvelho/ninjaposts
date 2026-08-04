@@ -1,4 +1,4 @@
-import { FORMATS, NETWORKS, STYLES } from '../../../shared/constants'
+import { BUSINESS_FIELD, FORMATS, NETWORKS, STYLES, contactLine } from '../../../shared/constants'
 import type { CreativeBrief, GenerationInput } from '../../../shared/types/generation'
 
 /**
@@ -53,6 +53,16 @@ const NUNCA = [
   'telefone, endereço, site ou perfil inventados',
 ].join('; ')
 
+/**
+ * Contatos escolhidos pelo dono, cada um com o rótulo do que é.
+ *
+ * O rótulo importa: "(11) 98765-4321" sozinho pode virar telefone fixo na
+ * diagramação; "WhatsApp: (11) 98765-4321" chega com o ícone certo.
+ */
+function contactFacts(input: GenerationInput): string[] {
+  return input.contactItems.map(item => `${BUSINESS_FIELD[item.field].label}: ${item.value}`)
+}
+
 /** Linhas "campo: valor", omitindo o que o usuário não preencheu. */
 function briefFacts(input: GenerationInput): string {
   const lines: string[] = [
@@ -66,6 +76,16 @@ function briefFacts(input: GenerationInput): string {
   if (input.cta) lines.push(`Chamada para ação: ${input.cta}`)
   if (input.colors.length) lines.push(`Cores da marca (a primeira é dominante): ${input.colors.join(', ')}`)
   if (input.logoPath) lines.push('A marca tem logo, que será aplicada na arte.')
+
+  const contatos = contactFacts(input)
+  if (contatos.length) {
+    lines.push(
+      'Contatos reais do estabelecimento, informados pelo dono e confirmados por ele'
+      + ' para esta peça (use exatamente assim, sem alterar um dígito):',
+      ...contatos.map(line => `  - ${line}`),
+    )
+  }
+
   if (input.extraInstructions) lines.push(`Pedidos do cliente: ${input.extraInstructions}`)
 
   const networks = input.networks.map(n => NETWORKS[n].label).join(', ')
@@ -85,6 +105,7 @@ export function buildBriefInstructions(input: GenerationInput): string {
   const format = FORMATS[input.format]
   const captionLimit = Math.min(...input.networks.map(n => NETWORKS[n].captionLimit))
   const hashtagLimit = Math.max(...input.networks.map(n => NETWORKS[n].hashtagLimit))
+  const linhaContato = contactLine(input.contactItems)
 
   return [
     'Você é diretor de arte premiado, especializado em campanhas publicitárias',
@@ -99,7 +120,11 @@ export function buildBriefInstructions(input: GenerationInput): string {
     '',
     '- "layoutPlan": a diagramação, em 2 ou 3 frases. Onde fica a logo, o título, o'
     + ' produto, o preço e o CTA, e que tamanho cada um ocupa em relação aos outros.'
-    + ` A peça é ${format.label} (${format.ratio}). O produto deve dominar a composição.`,
+    + ` A peça é ${format.label} (${format.ratio}). O produto deve dominar a composição.`
+    + (linhaContato
+      ? ' Reserve uma barra de contato no rodapé, em tipo menor, com fundo que garanta'
+        + ' leitura — é por ali que o cliente chega ao negócio.'
+      : ' Não há barra de contato nesta peça: o rodapé fica limpo.'),
     '',
     '- "photography": a direção de fotografia do produto. Se for comida ou bebida,'
     + ' descreva o que faz dar fome — vapor, brilho de gordura, queijo derretendo,'
@@ -136,9 +161,10 @@ export function buildBriefInstructions(input: GenerationInput): string {
       : '  - "price": null — este post não mostra preço.',
     '  - "promotion": o selo da promoção, no máximo 4 palavras, ou null.',
     '  - "cta": no máximo 4 palavras, ou null.',
-    '  - "contact": telefone, WhatsApp ou endereço APENAS se aparecer literalmente nos'
-    + ' dados acima. Caso contrário, null. NUNCA invente: o dono vai publicar esta peça,'
-    + ' e um contato falso manda o cliente dele para outro lugar.',
+    linhaContato
+      ? `  - "contact": exatamente esta string, sem reescrever nada: "${linhaContato}".`
+      : '  - "contact": null. O dono não pediu contato nesta peça — e inventar um manda'
+        + ' o cliente dele para o telefone de outra pessoa.',
     '',
     '- Nada de promessa enganosa, superlativo vazio ou informação que não veio dos dados.',
   ].join('\n')
@@ -235,9 +261,21 @@ export function buildImagePrompt(
   partes.push('', produto.join('\n'))
 
   if (input.renderMode === 'ai') {
-    const { headline, subheadline, price, promotion, cta, items, contact } = brief.textOverlay
+    const { headline, subheadline, price, promotion, cta, items } = brief.textOverlay
 
-    const textos = [headline, subheadline, ...items, promotion, price, cta, contact]
+    /**
+     * O contato vem de `input`, não do briefing.
+     *
+     * O modelo de texto já recebeu ordem de copiar a string literal, mas ele é
+     * o elo que pode normalizar um DDD ou "corrigir" um @ — e aqui um dígito
+     * trocado é o pior defeito possível do produto. Como o valor já chega
+     * pronto do perfil, não há motivo para deixá-lo passar por uma segunda
+     * mão: `brief.textOverlay.contact` só sobrevive no modo `hybrid`, onde
+     * quem compõe é o `sharp`.
+     */
+    const contato = input.contactItems.map(item => item.value)
+
+    const textos = [headline, subheadline, ...items, promotion, price, cta]
       .filter((t): t is string => Boolean(t))
 
     partes.push(
@@ -245,8 +283,27 @@ export function buildImagePrompt(
       'TEXTOS — escreva exatamente estas palavras na arte, em português do Brasil,'
       + ' com grafia idêntica e tipografia moderna de alto contraste:',
       textos.join('\n'),
-      'Não escreva nenhum outro texto, letra ou número na imagem.',
     )
+
+    if (contato.length) {
+      partes.push(
+        '',
+        'CONTATO — as linhas abaixo formam a barra do rodapé, em tipo menor que o resto,'
+        + ' na ordem dada. Copie caractere por caractere, incluindo pontuação, parênteses,'
+        + ' hífen e arroba. Não formate de outro jeito, não complete, não abrevie e não'
+        + ' acrescente nenhum outro contato:',
+        contato.join('\n'),
+      )
+    } else {
+      partes.push(
+        '',
+        'CONTATO: esta peça não leva telefone, endereço, site nem perfil. Não escreva'
+        + ' nenhum. Um contato inventado manda o cliente do anunciante para o telefone'
+        + ' de outra pessoa.',
+      )
+    }
+
+    partes.push('', 'Não escreva nenhum outro texto, letra ou número na imagem.')
   } else {
     partes.push(
       '',

@@ -1,4 +1,4 @@
-import { COLLECTIONS, SIGNUP_BONUS_CREDITS } from '#shared/constants'
+import { COLLECTIONS, SIGNUP_BONUS_CREDITS, emptyBrandSettings } from '#shared/constants'
 
 /**
  * Cria `users/{uid}` no primeiro acesso.
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         credits: SIGNUP_BONUS_CREDITS,
         activeJobs: 0,
 
-        brand: { logoPath: null, colors: [], defaultStyle: null },
+        brand: emptyBrandSettings(),
         stats: { generations: 0, downloads: 0, creditsPurchased: 0 },
 
         createdAt: now,

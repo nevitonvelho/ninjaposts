@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { INPUT_LIMITS, UPLOAD_LIMITS } from '../constants'
+import {
+  BUSINESS_FIELD,
+  BUSINESS_FIELD_IDS,
+  INPUT_LIMITS,
+  MAX_CONTACT_ITEMS,
+  UPLOAD_LIMITS,
+  emptyBusinessInfo,
+} from '../constants'
+import type { BusinessField } from '../types/user'
 
 /**
  * Fonte única de validação. O formulário do cliente e a rota do Nitro usam
@@ -53,6 +61,30 @@ export const styleSchema = z.enum([
 export const renderModeSchema = z.enum(['ai', 'hybrid'])
 export const packSchema = z.enum(['starter', 'essencial', 'pro'])
 
+export const businessFieldSchema = z.enum(
+  BUSINESS_FIELD_IDS as [BusinessField, ...BusinessField[]],
+)
+
+/**
+ * Todo campo do estabelecimento é opcional e tem limite próprio, tirado do
+ * catálogo — assim adicionar "PIX" amanhã é uma entrada em `BUSINESS_FIELDS`,
+ * não uma edição em três arquivos.
+ */
+export const businessInfoSchema = z.object(
+  Object.fromEntries(
+    BUSINESS_FIELD_IDS.map(id => [id, optionalText(BUSINESS_FIELD[id].max)]),
+  ) as Record<BusinessField, ReturnType<typeof optionalText>>,
+)
+
+/**
+ * O valor vai ser **grafado na arte**, então o limite é de legibilidade, não de
+ * armazenamento: uma linha de rodapé com 80 caracteres já sai ilegível no feed.
+ */
+export const contactItemSchema = z.object({
+  field: businessFieldSchema,
+  value: z.string().trim().min(1).max(120),
+})
+
 export const generationInputSchema = z.object({
   niche: z
     .string()
@@ -88,6 +120,10 @@ export const generationInputSchema = z.object({
     .max(INPUT_LIMITS.colors.max, `No máximo ${INPUT_LIMITS.colors.max} cores`)
     .default([]),
   logoPath: z.string().trim().min(1).nullable().default(null),
+  contactItems: z
+    .array(contactItemSchema)
+    .max(MAX_CONTACT_ITEMS, `No máximo ${MAX_CONTACT_ITEMS} informações de contato na arte`)
+    .default([]),
 
   renderMode: renderModeSchema.default('ai'),
   extraInstructions: optionalText(INPUT_LIMITS.extraInstructions.max),
@@ -103,12 +139,19 @@ export const brandSchema = z.object({
   logoPath: z.string().trim().min(1).nullable().default(null),
   colors: z.array(hexColorSchema).max(INPUT_LIMITS.colors.max).default([]),
   defaultStyle: styleSchema.nullable().default(null),
+  business: businessInfoSchema.default(() => emptyBusinessInfo()),
 })
 
+/**
+ * O formulário de perfil envia o objeto inteiro — não existe edição parcial na
+ * UI. Validar tudo de uma vez é o que garante que `brand.business` chegue
+ * completo ao Firestore: um merge parcial gravaria `undefined` nos campos que
+ * a tela não tocou, e o Firestore recusa `undefined`.
+ */
 export const updateProfileSchema = z.object({
-  displayName: z.string().trim().min(2, 'Informe seu nome').max(80).optional(),
-  company: z.string().trim().max(80).nullable().optional(),
-  brand: brandSchema.partial().optional(),
+  displayName: z.string().trim().min(2, 'Informe seu nome').max(80),
+  company: optionalText(80),
+  brand: brandSchema,
 })
 
 export const projectSchema = z.object({

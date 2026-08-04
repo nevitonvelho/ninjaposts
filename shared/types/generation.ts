@@ -1,4 +1,5 @@
 import type { Auditable, FsTimestamp, SoftDeletable } from './firestore'
+import type { BusinessField } from './user'
 
 // ---------------------------------------------------------------------------
 // Vocabulário do domínio
@@ -45,6 +46,19 @@ export type RenderMode = 'ai' | 'hybrid'
 // Entrada do usuário
 // ---------------------------------------------------------------------------
 
+/**
+ * Uma informação do estabelecimento escolhida para aparecer nesta arte.
+ *
+ * O valor é **fotografado no momento da geração**, não referenciado: o usuário
+ * pode trocar de número amanhã, e a peça precisa continuar explicando que
+ * telefone foi impresso nela — inclusive para "gerar novamente".
+ */
+export interface ContactItem {
+  field: BusinessField
+  /** Já formatado, exatamente como deve ser grafado na arte. */
+  value: string
+}
+
 /** Exatamente o que o usuário preencheu no formulário. Persistido para permitir duplicar. */
 export interface GenerationInput {
   niche: string
@@ -62,6 +76,13 @@ export interface GenerationInput {
 
   colors: string[]
   logoPath: string | null
+  /**
+   * Contatos escolhidos para esta peça, vindos do perfil (§ `BusinessInfo`).
+   *
+   * Vazio significa peça sem barra de contato — e o worker instrui o modelo a
+   * não inventar nenhuma, que é o padrão dele quando o rodapé fica vazio.
+   */
+  contactItems: ContactItem[]
 
   renderMode: RenderMode
   /** Instruções livres do usuário, anexadas ao briefing. */

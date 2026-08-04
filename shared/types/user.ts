@@ -3,13 +3,42 @@ import type { StyleId } from './generation'
 
 export type UserRole = 'user' | 'admin'
 
-/** Identidade visual reutilizada em todo post. */
+/**
+ * Dados do estabelecimento que podem ser grafados na arte.
+ *
+ * Ver `shared/constants/business.ts` para rótulo, ícone e formatação de cada um.
+ */
+export type BusinessField =
+  | 'name'
+  | 'whatsapp'
+  | 'phone'
+  | 'address'
+  | 'instagram'
+  | 'website'
+  | 'hours'
+
+/**
+ * O que o dono digita **uma vez**, no perfil, e reaproveita em todo post.
+ *
+ * Fica aqui e não no formulário de geração por um motivo específico: telefone e
+ * endereço são exatamente o tipo de dado que o modelo de imagem inventa quando
+ * não recebe (§ `TextOverlay.contact`). Tendo a fonte real guardada, a geração
+ * vira uma escolha — "mostrar o WhatsApp neste post?" — em vez de redigitação.
+ */
+export type BusinessInfo = Record<BusinessField, string | null>
+
+/** Identidade visual e dados de contato reutilizados em todo post. */
 export interface BrandSettings {
   /** Caminho no Storage, não URL. URLs de download expiram e não sobrevivem a troca de bucket. */
   logoPath: string | null
   /** Cores da marca em hex (`#RRGGBB`). Primeira é a dominante. */
   colors: string[]
   defaultStyle: StyleId | null
+  /**
+   * Documentos criados antes deste campo não o têm — leia sempre com
+   * `withBusinessInfo(brand)`, nunca direto.
+   */
+  business: BusinessInfo
 }
 
 export interface UserStats {

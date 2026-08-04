@@ -6,6 +6,7 @@
  * `shared/types/` apenas como *tipos*. Valores de runtime precisam de import
  * explícito, e o alias `#shared` deixa isso legível nos três ambientes.
  */
+export * from './business'
 export * from './collections'
 export * from './formats'
 export * from './limits'

@@ -44,13 +44,41 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    /**
+     * Cada campo é telefone, endereço ou @ que vai ser **grafado numa arte**.
+     * O teto de 200 caracteres não é sobre armazenamento: é o que impede
+     * alguém de enfiar um prompt inteiro no lugar do endereço.
+     */
+    function isValidBusinessField(business, key) {
+      return business.get(key, null) == null
+        || (business.get(key, null) is string && business.get(key, null).size() <= 200);
+    }
+
+    function isValidBusiness(business) {
+      return business is map
+        && business.keys().hasOnly(['name', 'whatsapp', 'phone', 'address', 'instagram', 'website', 'hours'])
+        && isValidBusinessField(business, 'name')
+        && isValidBusinessField(business, 'whatsapp')
+        && isValidBusinessField(business, 'phone')
+        && isValidBusinessField(business, 'address')
+        && isValidBusinessField(business, 'instagram')
+        && isValidBusinessField(business, 'website')
+        && isValidBusinessField(business, 'hours');
+    }
+
+    /**
+     * `business` entra com `hasAny` e não com `hasAll`: documentos criados
+     * antes do campo existir não o têm, e exigi-lo aqui travaria a primeira
+     * edição de perfil de todo mundo que já era cliente.
+     */
     function isValidBrand(brand) {
-      return brand.keys().hasOnly(['logoPath', 'colors', 'defaultStyle'])
+      return brand.keys().hasOnly(['logoPath', 'colors', 'defaultStyle', 'business'])
         && brand.keys().hasAll(['logoPath', 'colors', 'defaultStyle'])
         && (brand.logoPath == null || (brand.logoPath is string && brand.logoPath.size() <= 300))
         && brand.colors is list
         && brand.colors.size() <= 4
-        && (brand.defaultStyle == null || brand.defaultStyle is string);
+        && (brand.defaultStyle == null || brand.defaultStyle is string)
+        && (!brand.keys().hasAny(['business']) || isValidBusiness(brand.business));
     }
 
     // ---------------------------------------------------------------

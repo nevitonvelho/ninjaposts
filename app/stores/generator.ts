@@ -1,10 +1,15 @@
 import {
+  BUSINESS_FIELDS,
   FORMATS,
+  MAX_CONTACT_ITEMS,
   NETWORKS,
   NICHE_SUGGESTIONS,
   STYLES,
   creditCostFor,
+  defaultContactFields,
   formatsForNetworks,
+  resolveContactItems,
+  withBusinessInfo,
 } from '#shared/constants'
 import type { NicheSuggestion } from '#shared/constants'
 import type {
@@ -14,6 +19,7 @@ import type {
   SocialNetwork,
   StyleId,
 } from '#shared/types/generation'
+import type { BrandSettings, BusinessField } from '#shared/types/user'
 
 /**
  * Rascunho do formulário de criação.
@@ -25,7 +31,16 @@ import type {
  * alguém desistir antes da primeira arte.
  */
 
-export type StepId = 'business' | 'offer' | 'style' | 'brand'
+/**
+ * Três etapas, não quatro.
+ *
+ * A etapa "Marca" existia para o usuário redigitar cores e logo a cada post.
+ * Com isso guardado no perfil (§ `BrandSettings`), o que sobra não é um
+ * formulário — é uma conferência: o que já está pronto, o que aparece na arte
+ * e o botão de gerar. Fundir "Negócio" e "Oferta" segue o mesmo raciocínio:
+ * são seis campos sobre o mesmo assunto, e quatro deles são opcionais.
+ */
+export type StepId = 'post' | 'arte' | 'revisao'
 
 export interface StepSpec {
   id: StepId
@@ -37,31 +52,24 @@ export interface StepSpec {
 
 export const GENERATOR_STEPS: StepSpec[] = [
   {
-    id: 'business',
-    label: 'Negócio',
-    title: 'Sobre o seu negócio',
-    description: 'O que você vende e para quem. É daqui que sai a direção de arte.',
+    id: 'post',
+    label: 'O post',
+    title: 'O que você quer divulgar?',
+    description: 'O produto e, se fizer sentido, o preço. É daqui que sai a direção de arte.',
     icon: 'lucide:store',
   },
   {
-    id: 'offer',
-    label: 'Oferta',
-    title: 'A oferta do post',
-    description: 'Preço, promoção e chamada. Tudo opcional — inclua só o que fizer sentido.',
-    icon: 'lucide:tag',
-  },
-  {
-    id: 'style',
-    label: 'Estilo',
-    title: 'Estilo e formato',
-    description: 'Onde o post vai ser publicado e com que cara ele deve ter.',
+    id: 'arte',
+    label: 'A arte',
+    title: 'Onde publicar e com que cara',
+    description: 'A rede define o formato; o estilo define a luz, a textura e a composição.',
     icon: 'lucide:palette',
   },
   {
-    id: 'brand',
-    label: 'Marca',
-    title: 'Sua marca',
-    description: 'Cores, logo e ajustes finais antes de gerar.',
+    id: 'revisao',
+    label: 'Revisão',
+    title: 'O que aparece na arte',
+    description: 'Sua marca e seus contatos, já prontos. Confira e gere.',
     icon: 'lucide:sparkles',
   },
 ]
@@ -74,11 +82,12 @@ export const GENERATOR_STEPS: StepSpec[] = [
  * se a etapa atual libera o avanço.
  */
 const STEP_FIELDS: Record<StepId, (keyof GenerationInput)[]> = {
-  business: ['niche', 'product', 'description'],
-  offer: ['priceCents', 'promotion', 'cta'],
-  style: ['networks', 'format', 'style', 'templateId'],
-  brand: ['colors', 'logoPath', 'renderMode', 'extraInstructions'],
+  post: ['niche', 'product', 'description', 'priceCents', 'promotion', 'cta'],
+  arte: ['networks', 'format', 'style', 'templateId'],
+  revisao: ['colors', 'logoPath', 'contactItems', 'renderMode', 'extraInstructions'],
 }
+
+const NO_STEP_VALIDATED: Record<StepId, boolean> = { post: false, arte: false, revisao: false }
 
 /**
  * Modelo do formulário — não é o `GenerationInput`.
@@ -102,6 +111,14 @@ export interface GeneratorDraft {
 
   colors: string[]
   logoPath: string | null
+  /**
+   * Quais informações do perfil vão na arte — a **escolha**, não os valores.
+   *
+   * Guardar o telefone aqui congelaria no `localStorage` um número que o dono
+   * pode ter corrigido no perfil ontem. O valor é resolvido na hora de montar
+   * o input, sempre a partir do perfil vigente.
+   */
+  contactFields: BusinessField[]
 
   renderMode: RenderMode
   extraInstructions: string
@@ -111,7 +128,7 @@ export interface GeneratorDraft {
 }
 
 /** A versão no nome invalida rascunhos antigos quando o formato do draft mudar. */
-const DRAFT_KEY = 'ninjaposts:generator-draft:v1'
+const DRAFT_KEY = 'ninjaposts:generator-draft:v2'
 
 export function emptyDraft(): GeneratorDraft {
   return {
@@ -129,6 +146,7 @@ export function emptyDraft(): GeneratorDraft {
 
     colors: [],
     logoPath: null,
+    contactFields: [],
 
     renderMode: 'ai',
     extraInstructions: '',
@@ -147,14 +165,11 @@ export const useGeneratorStore = defineStore('generator', () => {
     mergeDefaults: true,
   })
 
+  const auth = useAuthStore()
+
   const stepIndex = ref(0)
   /** Etapas em que já tentamos avançar — só nelas os erros aparecem. */
-  const validated = ref<Record<StepId, boolean>>({
-    business: false,
-    offer: false,
-    style: false,
-    brand: false,
-  })
+  const validated = ref<Record<StepId, boolean>>({ ...NO_STEP_VALIDATED })
 
   const currentStep = computed(() => GENERATOR_STEPS[stepIndex.value] ?? GENERATOR_STEPS[0]!)
   const isFirstStep = computed(() => stepIndex.value === 0)
@@ -165,6 +180,39 @@ export const useGeneratorStore = defineStore('generator', () => {
   // -------------------------------------------------------------------------
 
   const priceCents = computed(() => parsePriceToCents(draft.value.priceInput))
+
+  // -------------------------------------------------------------------------
+  // Informações do estabelecimento
+  // -------------------------------------------------------------------------
+
+  /** Dados do perfil, normalizados — conta antiga não tem o campo `business`. */
+  const business = computed(() => withBusinessInfo(auth.userDoc?.brand?.business))
+
+  /** Só o que o dono realmente preencheu no perfil pode ser oferecido aqui. */
+  const availableContactFields = computed(() =>
+    BUSINESS_FIELDS.filter(spec => business.value[spec.id]),
+  )
+
+  /** A seleção resolvida contra o perfil, já formatada para a arte. */
+  const contactItems = computed(() =>
+    resolveContactItems(business.value, draft.value.contactFields),
+  )
+
+  const contactSelectionFull = computed(() => contactItems.value.length >= MAX_CONTACT_ITEMS)
+
+  function isContactSelected(field: BusinessField): boolean {
+    return draft.value.contactFields.includes(field)
+  }
+
+  /** Desmarcar é sempre livre; marcar respeita o teto de legibilidade da peça. */
+  function toggleContactField(field: BusinessField) {
+    if (isContactSelected(field)) {
+      draft.value.contactFields = draft.value.contactFields.filter(id => id !== field)
+      return
+    }
+    if (contactSelectionFull.value) return
+    draft.value.contactFields = [...draft.value.contactFields, field]
+  }
 
   /** Objeto cru no formato que o schema espera. */
   const rawInput = computed(() => ({
@@ -182,6 +230,7 @@ export const useGeneratorStore = defineStore('generator', () => {
 
     colors: draft.value.colors,
     logoPath: draft.value.logoPath,
+    contactItems: contactItems.value,
 
     renderMode: draft.value.renderMode,
     extraInstructions: draft.value.extraInstructions,
@@ -274,7 +323,7 @@ export const useGeneratorStore = defineStore('generator', () => {
 
   /** Revela todos os erros de uma vez — chamado no submit. */
   function validateAll(): boolean {
-    validated.value = { business: true, offer: true, style: true, brand: true }
+    validated.value = { post: true, arte: true, revisao: true }
     if (isValid.value) return true
     stepIndex.value = firstIncompleteIndex.value
     return false
@@ -365,13 +414,14 @@ export const useGeneratorStore = defineStore('generator', () => {
     style: STYLES[draft.value.style],
     colors: draft.value.colors,
     hasLogo: Boolean(draft.value.logoPath),
+    contacts: contactItems.value,
   }))
 
   function reset() {
     draft.value = emptyDraft()
     stepIndex.value = 0
     styleTouched.value = false
-    validated.value = { business: false, offer: false, style: false, brand: false }
+    validated.value = { ...NO_STEP_VALIDATED }
   }
 
   /**
@@ -395,6 +445,11 @@ export const useGeneratorStore = defineStore('generator', () => {
 
       colors: [...source.colors],
       logoPath: source.logoPath,
+      /**
+       * Recupera a *escolha*, não os valores gravados na geração antiga: se o
+       * telefone mudou desde então, o post novo sai com o número certo.
+       */
+      contactFields: source.contactItems.map(item => item.field),
 
       renderMode: source.renderMode,
       extraInstructions: source.extraInstructions ?? '',
@@ -405,16 +460,18 @@ export const useGeneratorStore = defineStore('generator', () => {
     stepIndex.value = 0
     // O estilo veio de uma geração real: é escolha, não palpite.
     styleTouched.value = true
-    validated.value = { business: false, offer: false, style: false, brand: false }
+    validated.value = { ...NO_STEP_VALIDATED }
   }
 
-  /** Aplica os padrões de marca do perfil em um rascunho ainda intocado. */
-  function applyBrandDefaults(brand: {
-    colors: string[]
-    logoPath: string | null
-    defaultStyle: StyleId | null
-  }) {
-    if (!draft.value.colors.length && brand.colors.length) {
+  /**
+   * Aplica os padrões do perfil em um rascunho ainda intocado.
+   *
+   * Cada campo só é preenchido se estiver vazio: reaplicar por cima desfaria
+   * escolha do usuário — quem apagou as cores de propósito e deu F5 as veria
+   * voltar sozinhas.
+   */
+  function applyBrandDefaults(brand: Partial<BrandSettings>) {
+    if (!draft.value.colors.length && brand.colors?.length) {
       draft.value.colors = [...brand.colors]
     }
     if (!draft.value.logoPath && brand.logoPath) {
@@ -422,6 +479,9 @@ export const useGeneratorStore = defineStore('generator', () => {
     }
     if (brand.defaultStyle && draft.value.style === emptyDraft().style) {
       draft.value.style = brand.defaultStyle
+    }
+    if (!draft.value.contactFields.length) {
+      draft.value.contactFields = defaultContactFields(brand.business)
     }
   }
 
@@ -452,6 +512,14 @@ export const useGeneratorStore = defineStore('generator', () => {
     setStyle,
     applyNiche,
     toggleNetwork,
+
+    business,
+    availableContactFields,
+    contactItems,
+    contactSelectionFull,
+    isContactSelected,
+    toggleContactField,
+
     creditCost,
     isDirty,
     summary,

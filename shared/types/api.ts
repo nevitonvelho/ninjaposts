@@ -1,4 +1,5 @@
 import type { GenerationDoc, GenerationInput } from './generation'
+import type { BusinessInfo } from './user'
 import type { CreditPack, PurchaseDoc } from './billing'
 import type { Serialized } from './firestore'
 
@@ -67,6 +68,7 @@ export interface UpdateProfileBody {
     logoPath?: string | null
     colors?: string[]
     defaultStyle?: string | null
+    business?: Partial<BusinessInfo>
   }
 }
 
