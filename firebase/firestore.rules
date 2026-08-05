@@ -135,6 +135,25 @@ service cloud.firestore {
     }
 
     // ---------------------------------------------------------------
+    // assets — biblioteca curada de referências e produtos
+    // ---------------------------------------------------------------
+    match /assets/{assetId} {
+      /**
+       * Leitura para qualquer autenticado: o seletor de produtos do formulário
+       * de criação precisa montar a galeria. Não há dado sensível aqui — são
+       * arquivos que existem para ser usados nas artes dos clientes.
+       */
+      allow get, list: if isSignedIn();
+
+      /**
+       * Escrita só admin. É a curadoria do produto: um asset ruim contamina a
+       * arte de todo cliente do nicho, e um PNG de produto errado coloca a
+       * embalagem de um concorrente na peça de alguém.
+       */
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------
     // projects — marcas do usuário
     // ---------------------------------------------------------------
     match /projects/{projectId} {

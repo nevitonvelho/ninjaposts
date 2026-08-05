@@ -320,6 +320,37 @@ interface TemplateDoc {
 }
 ```
 
+### 2.6.1 `assets/{assetId}` — biblioteca curada
+
+Duas bibliotecas de naturezas opostas, numa coleção só, separadas por `kind`:
+
+| `kind` | Quem escolhe | Papel no render |
+|---|---|---|
+| `style` | o sistema, pelo nicho | o modelo **imita a linguagem visual**, nunca o conteúdo |
+| `product` | o usuário, no formulário | o modelo desenha **aquele objeto**, com rótulo e proporções |
+
+```ts
+interface AssetDoc {
+  id: string
+  kind: 'style' | 'product'
+  name: string                  // rótulo interno; não vai para o prompt
+  niches: string[]              // slugs, ou ['universal']
+  path: string                  // caminho no Storage
+  description: string | null    // só product — vai para o prompt
+  isActive: boolean
+  sortOrder: number
+  createdBy: string
+}
+```
+
+Mesma coleção porque tudo que as cerca é idêntico — upload, rules, CRUD e a tela de admin. O que difere é só o consumo, e é o que `kind` separa.
+
+**Por que existe.** A direção de arte por texto tem teto: a mesma instrução produz peças ótimas e peças mortas conforme a paleta, e cada ajuste para consertar um defeito quebra outra coisa. Exemplo visual é um instrumento mais preciso que adjetivo. No banco de produtos o ganho é outro: rótulo inventado num anúncio real é problema de marca, não de estética.
+
+**`universal` é sentinela, não convenção.** `array-contains` não casa array vazio; sem ela, "serve a qualquer nicho" exigiria varrer a coleção a cada geração.
+
+**Só admin escreve** — Firestore e Storage. Um asset ruim contamina a arte de todo cliente do nicho.
+
 ### 2.7 `creditLedger/{entryId}` e `stats/`
 
 ```ts
@@ -651,6 +682,10 @@ Ponto de risco conhecido: modelos de imagem ainda erram texto pequeno e distorce
 - **`hybrid`** (v2): a IA gera só a cena/fundo; preço, CTA e logo são compostos deterministicamente com `sharp` a partir do `textOverlay` do brief. Texto sempre perfeito e logo intacta.
 
 Arquitetura já prevê o campo `renderMode` no input; `hybrid` é um branch na etapa PROCESS, sem refatoração.
+
+**Imagens anexadas: a ordem é o único canal.** A Images API recebe `image[]` (até 16) sem papel por imagem — não existe "esta é a logo". O worker monta o array em **logo → produtos → referência de estilo** e o `buildAttachmentsBlock` numera os anexos em texto na mesma sequência. Mexer numa ponta sem mexer na outra faz o modelo aplicar a referência de estilo como se fosse a logo.
+
+**`input_fidelity` é global, e isso é um compromisso assumido.** O parâmetro vale para todas as entradas. Fica em `'high'` porque logo e produto precisam sair fiéis — é a razão de existir do banco de produtos. O efeito indesejado sobre a referência de estilo (que deve inspirar, não ser copiada) é contido por texto no prompt. Se a arte sair parecida demais com a referência, a saída é baixar para `'low'` e voltar a compor a logo com `sharp`, que o `processImage` já sabe fazer.
 
 **A barra de contato não passa pelo modelo de texto.** No modo `ai`, os valores de `input.contactItems` vão para o prompt de imagem direto do documento, e não pelo `textOverlay.contact` do brief. O modelo de texto já recebe ordem de copiar a string literal, mas ele é o elo que "corrige" um DDD ou normaliza um `@` — e aqui um dígito trocado é o pior defeito possível do produto. Como o valor já chega pronto do perfil, não há motivo para deixá-lo passar por uma segunda mão. `textOverlay.contact` continua existindo porque é dele que o `sharp` vai compor o rodapé no modo `hybrid`.
 

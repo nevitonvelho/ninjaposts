@@ -82,7 +82,7 @@ export const GENERATOR_STEPS: StepSpec[] = [
  * se a etapa atual libera o avanço.
  */
 const STEP_FIELDS: Record<StepId, (keyof GenerationInput)[]> = {
-  post: ['niche', 'product', 'description', 'priceCents', 'promotion', 'cta'],
+  post: ['niche', 'product', 'description', 'priceCents', 'promotion', 'cta', 'productAssetIds'],
   arte: ['networks', 'format', 'style', 'templateId'],
   revisao: ['colors', 'logoPath', 'contactItems', 'renderMode', 'extraInstructions'],
 }
@@ -111,6 +111,8 @@ export interface GeneratorDraft {
 
   colors: string[]
   logoPath: string | null
+  /** Ids do banco de produtos (§ `AssetDoc`). */
+  productAssetIds: string[]
   /**
    * Quais informações do perfil vão na arte — a **escolha**, não os valores.
    *
@@ -146,6 +148,7 @@ export function emptyDraft(): GeneratorDraft {
 
     colors: [],
     logoPath: null,
+    productAssetIds: [],
     contactFields: [],
 
     renderMode: 'ai',
@@ -230,6 +233,7 @@ export const useGeneratorStore = defineStore('generator', () => {
 
     colors: draft.value.colors,
     logoPath: draft.value.logoPath,
+    productAssetIds: draft.value.productAssetIds,
     contactItems: contactItems.value,
 
     renderMode: draft.value.renderMode,
@@ -445,6 +449,7 @@ export const useGeneratorStore = defineStore('generator', () => {
 
       colors: [...source.colors],
       logoPath: source.logoPath,
+      productAssetIds: [...source.productAssetIds],
       /**
        * Recupera a *escolha*, não os valores gravados na geração antiga: se o
        * telefone mudou desde então, o post novo sai com o número certo.

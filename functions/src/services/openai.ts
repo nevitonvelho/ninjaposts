@@ -4,6 +4,7 @@ import type { CreativeBrief, GenerationInput } from '../../../shared/types/gener
 import { briefModel, imageModel, openaiApiKey } from '../lib/env'
 import { BRIEF_SCHEMA, buildBriefInstructions, buildImagePrompt } from './prompt'
 import { estimateImageCost, estimateTextCost } from './cost'
+import type { ResolvedAsset } from './assets'
 
 /**
  * Cliente da OpenAI e as duas chamadas do worker.
@@ -212,24 +213,55 @@ export async function renderImage(
   input: GenerationInput,
   brief: CreativeBrief,
   logo: Buffer | null,
+  /** PNGs do banco escolhidos pelo usuário. */
+  products: ResolvedAsset[] = [],
+  /** Referência de estilo do nicho, escolhida pelo sistema. */
+  styleReference: ResolvedAsset | null = null,
 ): Promise<RenderResult> {
   const model = imageModel.value()
   const size = FORMATS[input.format].renderSize
-  const prompt = buildImagePrompt(brief, input, Boolean(logo))
   const quality = 'high' as const
+
+  /**
+   * A ordem aqui **é** o contrato com o prompt.
+   *
+   * A Images API recebe um array sem papéis: não há como dizer "esta é a logo".
+   * O `buildAttachmentsBlock` numera os anexos em texto, e a única coisa que
+   * amarra a numeração ao array é esta sequência. Mexer aqui sem mexer lá faz
+   * o modelo aplicar a referência de estilo como se fosse a logo.
+   */
+  const anexos: { buffer: Buffer; name: string }[] = [
+    ...(logo ? [{ buffer: logo, name: 'logo.png' }] : []),
+    ...products.map((product, index) => ({ buffer: product.buffer, name: `produto-${index}.png` })),
+    ...(styleReference ? [{ buffer: styleReference.buffer, name: 'referencia.png' }] : []),
+  ]
+
+  const prompt = buildImagePrompt(brief, input, {
+    logo: Boolean(logo),
+    products: products.map(p => ({ name: p.name, description: p.description })),
+    styleReference: Boolean(styleReference),
+  })
 
   let art: Buffer
   let revisedPrompt: string | null
-  const costUsd = estimateImageCost(size, quality, model)
+  const costUsd = estimateImageCost(size, quality, model, anexos.length)
 
   try {
-    const response = logo
+    const response = anexos.length
       ? await openai().images.edit({
           model,
-          image: [await toFile(logo, 'logo.png', 'image/png')],
+          image: await Promise.all(
+            anexos.map(anexo => toFile(anexo.buffer, anexo.name, 'image/png')),
+          ),
           prompt,
           size,
           quality,
+          /**
+           * Vale para **todas** as entradas — a API não tem fidelidade por
+           * imagem. Fica em `high` porque logo e produto precisam sair fiéis
+           * (é a razão de existir do banco de produtos); o efeito indesejado
+           * sobre a referência de estilo é contido no texto do prompt.
+           */
           ...(SUPPORTS_INPUT_FIDELITY.has(model) ? { input_fidelity: 'high' as const } : {}),
         })
       : await openai().images.generate({

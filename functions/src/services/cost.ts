@@ -55,10 +55,25 @@ export function estimateTextCost(tokensIn: number, tokensOut: number): number {
   )
 }
 
+/**
+ * Acréscimo por imagem **de entrada** na chamada de edição.
+ *
+ * A logo sempre custou isso e passava despercebida; com a biblioteca de assets
+ * uma geração pode levar logo + 3 produtos + 1 referência, e aí a diferença
+ * deixa de ser ruído. Sem contabilizar, o teto diário de gasto
+ * (`GENERATION_LIMITS.dailyCostCapUsd`) libera mais jobs do que o cartão
+ * aguenta — que é exatamente o que ele existe para impedir.
+ *
+ * Como o resto deste arquivo: estimativa, não fatura.
+ */
+const INPUT_IMAGE_PRICE = 0.015
+
 export function estimateImageCost(
   size: string,
   quality: keyof typeof IMAGE_PRICE,
   model?: string,
+  /** Quantidade de imagens anexadas à chamada. */
+  inputImages = 0,
 ): number {
   if (model && model !== PRICED_IMAGE_MODEL && !avisouModelo) {
     avisouModelo = true
@@ -69,5 +84,5 @@ export function estimateImageCost(
     )
   }
 
-  return IMAGE_PRICE[quality] * (SIZE_MULTIPLIER[size] ?? 1)
+  return IMAGE_PRICE[quality] * (SIZE_MULTIPLIER[size] ?? 1) + inputImages * INPUT_IMAGE_PRICE
 }

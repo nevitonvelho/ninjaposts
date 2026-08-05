@@ -18,6 +18,11 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Mesma custom claim usada nas Firestore Rules e no `requireAdmin` da API.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
     function isImage() {
       return request.resource.contentType.matches('image/(png|jpeg|webp|svg\\+xml)');
     }
@@ -47,6 +52,23 @@ service firebase.storage {
     match /generations/{uid}/{generationId}/{fileName} {
       allow read: if isOwner(uid);
       allow write: if false;
+    }
+
+    // -----------------------------------------------------------------
+    // Biblioteca de assets — referências de estilo e PNGs de produto
+    // -----------------------------------------------------------------
+    match /assets/{kind}/{fileName} {
+      /**
+       * Todo usuário logado lê: a galeria de produtos do formulário de criação
+       * carrega estes arquivos direto do bucket.
+       */
+      allow read: if isSignedIn();
+
+      /**
+       * Só admin escreve. Sem isto, qualquer cliente poderia injetar a própria
+       * imagem na biblioteca que alimenta as artes de todo mundo.
+       */
+      allow write: if isAdmin() && isImage() && request.resource.size <= 4 * 1024 * 1024;
     }
 
     // -----------------------------------------------------------------

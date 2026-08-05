@@ -9,7 +9,13 @@ const menuItems = computed(() => [
   { label: 'Perfil', icon: 'lucide:user', to: '/app/perfil' },
   { label: 'Créditos', icon: 'lucide:zap', to: '/app/creditos' },
   ...(auth.isAdmin
-    ? [{ label: 'Administração', icon: 'lucide:shield', to: '/admin', separated: true }]
+    ? ADMIN_NAV.map((item, index) => ({
+        label: item.label,
+        icon: item.icon,
+        to: item.to,
+        // Separador só no primeiro: o bloco admin é um grupo, não itens soltos.
+        separated: index === 0,
+      }))
     : []),
   { label: 'Sair', icon: 'lucide:log-out', danger: true, separated: true, onClick: logout },
 ])

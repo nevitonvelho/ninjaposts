@@ -355,11 +355,74 @@ function buildFooterBlock(cta: string | null, input: GenerationInput): string {
  *   rótulos de zona. Cada rótulo a mais é uma instrução a mais competindo com a
  *   tarefa de grafar as palavras corretamente.
  */
+/** O que foi anexado à chamada, na mesma ordem do array `image[]`. */
+export interface Attachments {
+  /** A logo segue anexada à chamada, em vez de ser composta depois. */
+  logo: boolean
+  /** Descrição de cada PNG do banco escolhido pelo usuário. */
+  products: { name: string; description: string | null }[]
+  /** Referência de estilo do nicho, escolhida pelo sistema. */
+  styleReference: boolean
+}
+
+export const NO_ATTACHMENTS: Attachments = { logo: false, products: [], styleReference: false }
+
+/**
+ * Bloco que explica ao modelo o que é cada imagem anexada.
+ *
+ * A Images API não tem papel por imagem: manda-se um array e pronto. **A ordem
+ * é o único canal** para dizer que a primeira é a logo e a última é uma
+ * referência de linguagem visual — daí a numeração explícita, montada em
+ * runtime para bater exatamente com o que foi enviado.
+ *
+ * O risco que este bloco existe para conter: `input_fidelity: 'high'` vale para
+ * *todas* as entradas. É o que queremos para logo e produto, que precisam sair
+ * fiéis, e o oposto do que queremos para a referência — que deve inspirar, não
+ * ser copiada. O texto é o contrapeso.
+ */
+function buildAttachmentsBlock(attachments: Attachments): string {
+  const linhas: string[] = []
+  let n = 0
+
+  if (attachments.logo) {
+    linhas.push(
+      `${++n}. LOGO da marca. NÃO é o fundo, NÃO é a base da arte e NÃO deve ser`
+      + ' reinterpretada ou redesenhada. Aplique no canto superior esquerdo exatamente'
+      + ' como está: mesmas formas, mesmas proporções, mesmas cores, sem distorcer e'
+      + ' sem recolorir, com respiro ao redor e sem competir com o título.',
+    )
+  }
+
+  for (const product of attachments.products) {
+    const oque = product.description ?? product.name
+    linhas.push(
+      `${++n}. PRODUTO REAL: ${oque}. Este objeto deve aparecer na cena com embalagem,`
+      + ' rótulo, cores e proporções idênticos aos da imagem. Não redesenhe o rótulo,'
+      + ' não invente texto nele e não troque por um produto parecido. Integre à cena'
+      + ' com a mesma luz e a mesma perspectiva do resto.',
+    )
+  }
+
+  if (attachments.styleReference) {
+    linhas.push(
+      `${++n}. REFERÊNCIA DE ESTILO. É o único anexo que você NÃO deve reproduzir.`
+      + ' Não copie o produto, os textos, os preços nem os elementos dela — nada do'
+      + ' conteúdo. Use apenas a linguagem visual: temperatura e profundidade do fundo,'
+      + ' peso e tratamento do título, formato do selo de preço, ritmo da composição e'
+      + ' nível de energia. A arte final é sobre o produto descrito acima, não sobre o'
+      + ' que aparece nessa referência.',
+    )
+  }
+
+  if (!linhas.length) return ''
+
+  return ['IMAGENS ANEXADAS, nesta ordem:', ...linhas].join('\n')
+}
+
 export function buildImagePrompt(
   brief: CreativeBrief,
   input: GenerationInput,
-  /** A logo segue anexada à chamada, em vez de ser composta depois. */
-  logoComoReferencia = false,
+  attachments: Attachments = NO_ATTACHMENTS,
 ): string {
   const format = FORMATS[input.format]
   const partes: string[] = [
@@ -422,21 +485,21 @@ export function buildImagePrompt(
     )
   }
 
-  if (logoComoReferencia) {
+  const anexos = buildAttachmentsBlock(attachments)
+
+  if (anexos) {
     /**
-     * A logo vai anexada à chamada, e o risco desta rota é o modelo tratar a
-     * imagem recebida como **tela** — foi o que aconteceu quando ela era a
-     * única entrada, e a composição inteira ficou ancorada num arquivo de 200
-     * pixels. As duas últimas frases existem só para desfazer essa leitura.
+     * O risco desta rota é o modelo tratar uma imagem recebida como **tela** —
+     * foi o que aconteceu quando a logo era a única entrada, e a composição
+     * inteira ficou ancorada num arquivo de 200 pixels. A última frase existe
+     * só para desfazer essa leitura, e vale para qualquer anexo.
      */
     partes.push(
       '',
-      'LOGO: a imagem anexada é a LOGO da marca. Ela NÃO é o fundo, NÃO é a base'
-      + ' da arte e NÃO deve ser reinterpretada ou redesenhada.'
-      + ' Aplique-a no canto superior esquerdo exatamente como está: mesmas formas,'
-      + ' mesmas proporções, mesmas cores, sem distorcer e sem recolorir, com respiro'
-      + ' ao redor e sem competir com o título.'
-      + ' Todo o restante da arte deve ser criado do zero conforme descrito acima.',
+      anexos,
+      '',
+      'Nenhuma das imagens anexadas é o fundo ou a base da peça. Todo o restante da'
+      + ' arte deve ser criado do zero conforme descrito acima.',
     )
   } else if (input.logoPath) {
     // A logo será composta com `sharp` depois. Aqui só se reserva o lugar — e se

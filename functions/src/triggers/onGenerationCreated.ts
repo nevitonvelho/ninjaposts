@@ -6,6 +6,7 @@ import { advance, completeJob, failJob } from '../services/job'
 import { ProviderError, createBrief, renderImage } from '../services/openai'
 import { processImage } from '../services/image'
 import { downloadLogo, uploadGenerationFiles } from '../services/storage'
+import { pickStyleReference, resolveProductAssets } from '../services/assets'
 
 /**
  * O worker (§7.1).
@@ -70,8 +71,25 @@ export const onGenerationCreated = onDocumentCreated(
 
       // --- RENDER ---
       await advance(generationId, 'rendering')
-      const logo = input.logoPath ? await downloadLogo(input.logoPath) : null
-      const render = await withRetry(() => renderImage(input, brief.brief, logo), 'render')
+
+      /**
+       * Os três anexos são independentes entre si, então vão juntos: são até
+       * cinco downloads do bucket, e em série somariam latência a uma etapa que
+       * já é a mais longa do job.
+       *
+       * Nenhum deles derruba a geração se falhar — cada resolvedor devolve
+       * `null` ou lista vazia e o render segue com o que tiver.
+       */
+      const [logo, products, styleReference] = await Promise.all([
+        input.logoPath ? downloadLogo(input.logoPath) : null,
+        resolveProductAssets(input.productAssetIds ?? []),
+        pickStyleReference(input.niche),
+      ])
+
+      const render = await withRetry(
+        () => renderImage(input, brief.brief, logo, products, styleReference),
+        'render',
+      )
 
       costUsd += render.costUsd
 

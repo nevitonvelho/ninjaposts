@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  ASSET_LIMITS,
   BUSINESS_FIELD,
   BUSINESS_FIELD_IDS,
   INPUT_LIMITS,
@@ -120,6 +121,10 @@ export const generationInputSchema = z.object({
     .max(INPUT_LIMITS.colors.max, `No máximo ${INPUT_LIMITS.colors.max} cores`)
     .default([]),
   logoPath: z.string().trim().min(1).nullable().default(null),
+  productAssetIds: z
+    .array(z.string().trim().min(1).max(64))
+    .max(ASSET_LIMITS.perGeneration, `No máximo ${ASSET_LIMITS.perGeneration} produtos por arte`)
+    .default([]),
   contactItems: z
     .array(contactItemSchema)
     .max(MAX_CONTACT_ITEMS, `No máximo ${MAX_CONTACT_ITEMS} informações de contato na arte`)
@@ -152,6 +157,35 @@ export const updateProfileSchema = z.object({
   displayName: z.string().trim().min(2, 'Informe seu nome').max(80),
   company: optionalText(80),
   brand: brandSchema,
+})
+
+export const assetKindSchema = z.enum(['style', 'product'])
+
+/**
+ * Biblioteca de assets. Validado no cliente porque a escrita é direta pelo SDK
+ * — as Security Rules barram quem não é admin, mas não sabem dizer "o nome
+ * está curto demais" de um jeito que dê para mostrar na tela.
+ */
+export const assetSchema = z.object({
+  kind: assetKindSchema,
+  name: z
+    .string()
+    .trim()
+    .min(ASSET_LIMITS.name.min, 'Dê um nome para achar depois')
+    .max(ASSET_LIMITS.name.max),
+  /**
+   * Pelo menos um nicho, sempre — mesmo que seja `universal`. Asset sem nicho
+   * nenhum é invisível para a consulta do worker, que casa por
+   * `array-contains`, e viraria um arquivo pago que nunca é usado.
+   */
+  niches: z
+    .array(z.string().trim().min(1).max(60))
+    .min(1, 'Escolha ao menos um nicho, ou marque como universal')
+    .max(ASSET_LIMITS.niches.max),
+  path: z.string().trim().min(1, 'Envie o arquivo'),
+  description: optionalText(ASSET_LIMITS.description.max),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).max(999).default(0),
 })
 
 export const projectSchema = z.object({

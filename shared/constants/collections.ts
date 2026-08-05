@@ -5,6 +5,8 @@ export const COLLECTIONS = {
   generations: 'generations',
   purchases: 'purchases',
   templates: 'templates',
+  /** Biblioteca curada de referências de estilo e PNGs de produto (§ `AssetDoc`). */
+  assets: 'assets',
   creditLedger: 'creditLedger',
   webhookEvents: 'webhookEvents',
   stats: 'stats',
@@ -19,6 +21,8 @@ export const STORAGE_PATHS = {
   generationJpg: (uid: string, genId: string) => `generations/${uid}/${genId}/image.jpg`,
   generationThumb: (uid: string, genId: string) => `generations/${uid}/${genId}/thumb.webp`,
   templatePreview: (templateId: string) => `templates/${templateId}/preview.webp`,
+  /** `kind` no caminho deixa a Storage Rule casar os dois tipos numa regra só. */
+  asset: (kind: string, assetId: string, ext: string) => `assets/${kind}/${assetId}.${ext}`,
 } as const
 
 /** Documentos de agregado lidos pelo painel admin. */

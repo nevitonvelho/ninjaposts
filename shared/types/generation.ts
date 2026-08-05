@@ -77,6 +77,15 @@ export interface GenerationInput {
   colors: string[]
   logoPath: string | null
   /**
+   * Ids de `assets` do tipo `product` escolhidos pelo usuário.
+   *
+   * Guardamos o **id**, não o caminho: o admin pode trocar o arquivo de um
+   * produto (uma foto melhor da mesma garrafa) e as gerações seguintes usam a
+   * nova sem que nada aqui mude. Asset apagado ou desativado é simplesmente
+   * ignorado no render — não derruba o job.
+   */
+  productAssetIds: string[]
+  /**
    * Contatos escolhidos para esta peça, vindos do perfil (§ `BusinessInfo`).
    *
    * Vazio significa peça sem barra de contato — e o worker instrui o modelo a

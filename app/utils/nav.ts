@@ -26,6 +26,16 @@ export const APP_NAV_SECONDARY: NavItem[] = [
 ]
 
 /**
+ * Painel administrativo. Só aparece para quem tem a claim `role: 'admin'` — e
+ * isso é UX: quem protege as rotas é o middleware `admin`, e quem protege os
+ * dados são as Security Rules.
+ */
+export const ADMIN_NAV: NavItem[] = [
+  { label: 'Administração', to: '/admin', icon: 'lucide:shield' },
+  { label: 'Biblioteca', to: '/admin/biblioteca', icon: 'lucide:images' },
+]
+
+/**
  * `/app` só casa exato — sem isto ele ficaria ativo em todas as sub-rotas,
  * já que toda rota do app começa com `/app`.
  */

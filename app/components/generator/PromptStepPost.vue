@@ -86,6 +86,17 @@ const offerSummary = computed(() => {
       />
     </UiField>
 
+    <!--
+      O rótulo mora dentro do componente: quando não há banco de produtos, o
+      bloco inteiro some — um `UiField` com título e dica sobre uma grade vazia
+      seria pior que não ter a seção.
+    -->
+    <GeneratorProductAssetPicker
+      v-model="draft.productAssetIds"
+      :niche="draft.niche"
+      :error="generator.errorFor('productAssetIds')"
+    />
+
     <!-- Oferta -->
     <div class="rounded-lg border border-line">
       <button
