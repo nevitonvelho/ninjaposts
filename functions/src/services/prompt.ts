@@ -40,14 +40,43 @@ const QUALIDADE = [
 ].join('\n')
 
 /**
+ * Disciplina de diagramação — o que separa "foto bonita com texto por cima" de
+ * peça feita por designer.
+ *
+ * O que denuncia arte automática não é a fotografia: essa o modelo já entrega.
+ * É o layout. Item do combo jogado solto ao lado do selo de preço, três
+ * alinhamentos diferentes no mesmo terço da peça, margem que muda de lado para
+ * lado, botão cinza genérico numa marca que tem cor. Cada linha aqui ataca um
+ * desses defeitos — todos observados em peças reais deste produto.
+ */
+const DIAGRAMACAO = [
+  'Margem de segurança uniforme nos quatro lados. Nenhum texto, selo ou botão encosta na borda.',
+  'Tudo alinhado a uma grade: no máximo dois eixos de alinhamento na peça inteira.',
+  'Um único raio de canto para todos os selos, botões e caixas.',
+  'No máximo duas famílias tipográficas, com salto de tamanho evidente entre título, apoio e rodapé.',
+  'Nenhum texto solto: todo texto secundário mora dentro de um bloco tratado —'
+  + ' caixa, faixa, selo ou coluna — com espaçamento interno constante.',
+  'A cor de destaque da marca aparece em pelo menos dois elementos (botão, selo de'
+  + ' preço, faixa), nunca em um só e nunca em nenhum.',
+  'Espaço vazio é composição, não sobra: se um canto ficar vazio, reequilibre a peça'
+  + ' em vez de preencher com enfeite.',
+].join('\n')
+
+/**
  * O que nunca pode aparecer. Vai sempre, somado ao negativo do briefing.
  *
- * O último grupo não é estético: telefone, endereço ou @ inventados numa peça
- * que o dono vai publicar mandam o cliente dele para o contato de outra pessoa.
+ * O primeiro grupo é tipografia, o segundo é diagramação, o terceiro é honestidade.
+ * O último não é estético: telefone, endereço ou @ inventados numa peça que o dono
+ * vai publicar mandam o cliente dele para o contato de outra pessoa.
  */
 const NUNCA = [
   'texto com erro de grafia, letras embaralhadas, palavra duplicada ou sem sentido',
   'tipografia deformada ou derretida',
+  'texto secundário solto sobre a foto, sem caixa, faixa ou selo que o sustente',
+  'elementos desalinhados entre si ou margens irregulares',
+  'mais de duas famílias tipográficas',
+  'botão ou selo em cinza genérico quando a marca tem cor',
+  'raios de luz, brilhos e reflexos decorativos que não vêm de uma fonte de luz da cena',
   'marca d\'água',
   'dedos, membros ou objetos flutuantes a mais',
   'telefone, endereço, site ou perfil inventados',
@@ -118,13 +147,16 @@ export function buildBriefInstructions(input: GenerationInput): string {
     'Regras — responda TUDO em português do Brasil:',
     `- "imagePrompt": a cena e a direção de arte — fundo, atmosfera, materiais, luz, ângulo do produto. Incorpore: ${style.promptFragment}.`,
     '',
-    '- "layoutPlan": a diagramação, em 2 ou 3 frases. Onde fica a logo, o título, o'
-    + ' produto, o preço e o CTA, e que tamanho cada um ocupa em relação aos outros.'
-    + ` A peça é ${format.label} (${format.ratio}). O produto deve dominar a composição.`
+    '- "layoutPlan": a diagramação, zona por zona, em 3 ou 4 frases. Onde ficam a logo,'
+    + ' o título, o produto, o selo de preço e o rodapé, e que fração da peça cada um'
+    + ` ocupa. A peça é ${format.label} (${format.ratio}) e o produto domina a composição.`
+    + ' Escolha UMA cor de destaque da paleta e diga em quais dois elementos ela aparece.'
+    + ' Trate o terço inferior como um bloco projetado, com um único eixo de alinhamento'
+    + ' — é o que separa peça de designer de foto com texto por cima.'
     + (linhaContato
-      ? ' Reserve uma barra de contato no rodapé, em tipo menor, com fundo que garanta'
-        + ' leitura — é por ali que o cliente chega ao negócio.'
-      : ' Não há barra de contato nesta peça: o rodapé fica limpo.'),
+      ? ' A chamada e o contato formam uma só unidade no rodapé: botão sólido na cor de'
+        + ' destaque, com o contato dentro dele ou em faixa colada a ele.'
+      : ' Não há contato nesta peça: o rodapé fica limpo e equilibrado.'),
     '',
     '- "photography": a direção de fotografia do produto. Se for comida ou bebida,'
     + ' descreva o que faz dar fome — vapor, brilho de gordura, queijo derretendo,'
@@ -218,6 +250,79 @@ export const BRIEF_SCHEMA = {
 } as const
 
 /**
+ * O rodapé da peça: chamada e contato como **uma unidade de interface**.
+ *
+ * Nasceu de um defeito concreto. Com a chamada na lista de textos e o contato
+ * numa lista separada, a arte saía com um botão cinza translúcido escrito
+ * "Peça pelo WhatsApp" — sem o número — flutuando centralizado enquanto preço
+ * e itens ficavam à direita: três alinhamentos no mesmo terço da peça, e o
+ * telefone que o dono escolheu mostrar simplesmente ausente.
+ *
+ * Descrever botão e número como um objeto só resolve os dois de uma vez, e é
+ * assim que um designer diagramaria: quem lê o "peça pelo WhatsApp" precisa
+ * ver para onde pedir sem procurar.
+ *
+ * Os valores vêm de `input`, não do briefing. O modelo de texto já recebeu
+ * ordem de copiar a string literal, mas ele é o elo que pode normalizar um DDD
+ * ou "corrigir" um @ — e aqui um dígito trocado é o pior defeito possível do
+ * produto. `brief.textOverlay.contact` só sobrevive no modo `hybrid`, onde
+ * quem compõe é o `sharp`.
+ */
+function buildFooterBlock(cta: string | null, input: GenerationInput): string {
+  const items = input.contactItems
+  const principal = items.find(item => item.field === 'whatsapp' || item.field === 'phone') ?? null
+  const secundarios = items.filter(item => item !== principal)
+
+  const COPIA_FIEL = 'Copie caractere por caractere, incluindo pontuação, parênteses,'
+    + ' hífen e arroba. Não reformate, não complete, não abrevie e não acrescente'
+    + ' nenhum outro contato.'
+
+  const linhas: string[] = ['RODAPÉ:']
+
+  if (cta && principal) {
+    const icone = principal.field === 'whatsapp' ? 'o ícone do WhatsApp' : 'um ícone de telefone'
+    linhas.push(
+      `- um único botão sólido, preenchido com a cor de destaque da marca, com ${icone}`
+      + ` à esquerda, o texto "${cta}" e, imediatamente ao lado ou logo abaixo dentro do`
+      + ` mesmo botão, o número "${principal.value}" — em tipo menor, mas legível.`,
+      '- o botão é o elemento mais evidente do terço inferior e fica alinhado ao mesmo'
+      + ' eixo do restante da peça.',
+    )
+  } else if (cta) {
+    linhas.push(
+      `- um único botão sólido, preenchido com a cor de destaque da marca, com o texto "${cta}".`,
+      '- alinhado ao mesmo eixo do restante da peça, com respiro em volta.',
+    )
+  }
+
+  if (secundarios.length) {
+    linhas.push(
+      // "Menor que o botão" só faz sentido se existir botão — sem CTA, a faixa é
+      // o único elemento do rodapé e a referência de tamanho tem de ser outra.
+      `- uma faixa na base, ${cta ? 'em tipo menor que o botão' : 'em tipo pequeno e discreto'},`
+      + ` com: ${secundarios.map(i => i.value).join('  ·  ')}`,
+      '- a faixa atravessa a peça de margem a margem, com fundo que garanta leitura.',
+    )
+  }
+
+  if (!cta && principal) {
+    linhas.push(
+      `- uma faixa de contato na base, com fundo que garanta leitura: ${principal.value}`,
+    )
+  }
+
+  if (linhas.length === 1) {
+    return 'RODAPÉ: esta peça não leva chamada, telefone, endereço, site nem perfil.'
+      + ' Deixe a base limpa e equilibrada. Não escreva contato nenhum — inventado, ele'
+      + ' manda o cliente do anunciante para o telefone de outra pessoa.'
+  }
+
+  if (items.length) linhas.push(`- ${COPIA_FIEL}`)
+
+  return linhas.join('\n')
+}
+
+/**
  * Prompt final da imagem.
  *
  * Modelado numa peça que comprovadamente funcionou: mesmo esqueleto, mesma
@@ -264,18 +369,13 @@ export function buildImagePrompt(
     const { headline, subheadline, price, promotion, cta, items } = brief.textOverlay
 
     /**
-     * O contato vem de `input`, não do briefing.
+     * O CTA sai da lista de textos e vira **botão** no rodapé.
      *
-     * O modelo de texto já recebeu ordem de copiar a string literal, mas ele é
-     * o elo que pode normalizar um DDD ou "corrigir" um @ — e aqui um dígito
-     * trocado é o pior defeito possível do produto. Como o valor já chega
-     * pronto do perfil, não há motivo para deixá-lo passar por uma segunda
-     * mão: `brief.textOverlay.contact` só sobrevive no modo `hybrid`, onde
-     * quem compõe é o `sharp`.
+     * Listado junto com o resto, ele saía como mais uma frase solta sobre a
+     * foto — e é justamente o elemento que o público precisa reconhecer como
+     * clicável mesmo numa imagem estática.
      */
-    const contato = input.contactItems.map(item => item.value)
-
-    const textos = [headline, subheadline, ...items, promotion, price, cta]
+    const textos = [headline, subheadline, ...items, promotion, price]
       .filter((t): t is string => Boolean(t))
 
     partes.push(
@@ -285,24 +385,16 @@ export function buildImagePrompt(
       textos.join('\n'),
     )
 
-    if (contato.length) {
+    if (items.length) {
       partes.push(
         '',
-        'CONTATO — as linhas abaixo formam a barra do rodapé, em tipo menor que o resto,'
-        + ' na ordem dada. Copie caractere por caractere, incluindo pontuação, parênteses,'
-        + ' hífen e arroba. Não formate de outro jeito, não complete, não abrevie e não'
-        + ' acrescente nenhum outro contato:',
-        contato.join('\n'),
-      )
-    } else {
-      partes.push(
-        '',
-        'CONTATO: esta peça não leva telefone, endereço, site nem perfil. Não escreva'
-        + ' nenhum. Um contato inventado manda o cliente do anunciante para o telefone'
-        + ' de outra pessoa.',
+        'Os itens do combo formam uma coluna alinhada dentro de um bloco tratado, com'
+        + ' marcador ou separador entre eles e espaçamento constante. Nunca soltos sobre'
+        + ' a foto e nunca encostados no selo de preço.',
       )
     }
 
+    partes.push('', buildFooterBlock(cta, input))
     partes.push('', 'Não escreva nenhum outro texto, letra ou número na imagem.')
   } else {
     partes.push(
@@ -339,6 +431,7 @@ export function buildImagePrompt(
     )
   }
 
+  partes.push('', `DIAGRAMAÇÃO:\n${DIAGRAMACAO}`)
   partes.push('', `QUALIDADE:\n${QUALIDADE}`)
   partes.push('', `EVITAR: ${brief.negativePrompt}; ${NUNCA}.`)
 
