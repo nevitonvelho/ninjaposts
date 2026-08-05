@@ -40,24 +40,38 @@ const QUALIDADE = [
 ].join('\n')
 
 /**
- * Disciplina de diagramação — o que separa "foto bonita com texto por cima" de
- * peça feita por designer.
+ * Diagramação — rigor **sem** perder a energia da peça.
  *
- * O que denuncia arte automática não é a fotografia: essa o modelo já entrega.
- * É o layout. Item do combo jogado solto ao lado do selo de preço, três
- * alinhamentos diferentes no mesmo terço da peça, margem que muda de lado para
- * lado, botão cinza genérico numa marca que tem cor. Cada linha aqui ataca um
- * desses defeitos — todos observados em peças reais deste produto.
+ * A primeira versão deste bloco custou uma lição. Ela pedia grade rígida (dois
+ * eixos de alinhamento), um único raio de canto e proibia brilhos decorativos,
+ * e o resultado foi uma peça organizada e morta: título chapado no canto,
+ * selo de preço em círculo genérico, um botão enorme e liso ocupando o rodapé.
+ * Tecnicamente correta, e nada parecida com o que um social media entrega.
+ *
+ * O que peça de rede social precisa é o oposto de sobriedade: fundo com
+ * temperatura, título com presença, selo de preço com personalidade. Rigor vale
+ * para o que **atrapalha a leitura** — margem irregular, texto jogado solto
+ * sobre a foto — e não para o que dá caráter.
+ *
+ * Por isso o bloco tem dois tempos: energia primeiro, disciplina depois.
  */
 const DIAGRAMACAO = [
+  '— Energia (é peça de rede social, não relatório):',
+  'O fundo tem temperatura e profundidade: gradiente, textura ou luz que converse'
+  + ' com o produto. Fundo chapado só se o estilo pedido for minimalista.',
+  'O título tem presença física — peso, contorno, sombra ou leve inclinação. É o'
+  + ' segundo elemento que a pessoa vê, depois do produto.',
+  'O selo de preço tem personalidade: formato irregular, rasgado, inclinado ou em'
+  + ' fita. Círculo liso e centralizado é o desenho mais esquecível possível.',
+  'Brilhos, faíscas, fumaça e raios de luz são bem-vindos quando reforçam o produto.',
+  '',
+  '— Disciplina (só onde atrapalha a leitura):',
   'Margem de segurança uniforme nos quatro lados. Nenhum texto, selo ou botão encosta na borda.',
-  'Tudo alinhado a uma grade: no máximo dois eixos de alinhamento na peça inteira.',
-  'Um único raio de canto para todos os selos, botões e caixas.',
-  'No máximo duas famílias tipográficas, com salto de tamanho evidente entre título, apoio e rodapé.',
   'Nenhum texto solto: todo texto secundário mora dentro de um bloco tratado —'
   + ' caixa, faixa, selo ou coluna — com espaçamento interno constante.',
-  'A cor de destaque da marca aparece em pelo menos dois elementos (botão, selo de'
-  + ' preço, faixa), nunca em um só e nunca em nenhum.',
+  'No máximo duas famílias tipográficas, com salto de tamanho evidente entre título, apoio e rodapé.',
+  'Nenhum elemento de interface domina a peça: botão e faixa de rodapé somados'
+  + ' ocupam no máximo um sexto da altura.',
   'Espaço vazio é composição, não sobra: se um canto ficar vazio, reequilibre a peça'
   + ' em vez de preencher com enfeite.',
 ].join('\n')
@@ -73,10 +87,9 @@ const NUNCA = [
   'texto com erro de grafia, letras embaralhadas, palavra duplicada ou sem sentido',
   'tipografia deformada ou derretida',
   'texto secundário solto sobre a foto, sem caixa, faixa ou selo que o sustente',
-  'elementos desalinhados entre si ou margens irregulares',
+  'margens irregulares',
   'mais de duas famílias tipográficas',
-  'botão ou selo em cinza genérico quando a marca tem cor',
-  'raios de luz, brilhos e reflexos decorativos que não vêm de uma fonte de luz da cena',
+  'botão ou faixa de rodapé grande demais, roubando a área do produto',
   'marca d\'água',
   'dedos, membros ou objetos flutuantes a mais',
   'telefone, endereço, site ou perfil inventados',
@@ -282,11 +295,16 @@ function buildFooterBlock(cta: string | null, input: GenerationInput): string {
   if (cta && principal) {
     const icone = principal.field === 'whatsapp' ? 'o ícone do WhatsApp' : 'um ícone de telefone'
     linhas.push(
-      `- um único botão sólido, preenchido com a cor de destaque da marca, com ${icone}`
-      + ` à esquerda, o texto "${cta}" e, imediatamente ao lado ou logo abaixo dentro do`
-      + ` mesmo botão, o número "${principal.value}" — em tipo menor, mas legível.`,
-      '- o botão é o elemento mais evidente do terço inferior e fica alinhado ao mesmo'
-      + ' eixo do restante da peça.',
+      `- um botão sólido na cor de destaque da marca, com ${icone} à esquerda, o texto`
+      + ` "${cta}" e, ao lado ou logo abaixo dentro do mesmo botão, o número`
+      + ` "${principal.value}" — em tipo menor, mas legível.`,
+      /**
+       * O tamanho é instrução explícita porque a versão sem ele produziu uma
+       * pílula clara ocupando quase um quinto da peça: o CTA virou o assunto
+       * da arte, no lugar do produto.
+       */
+      '- o botão é compacto e não atravessa a peça inteira; pode ter forma com caráter'
+      + ' (pincelada, fita, canto cortado) em vez de retângulo neutro.',
     )
   } else if (cta) {
     linhas.push(
@@ -388,9 +406,9 @@ export function buildImagePrompt(
     if (items.length) {
       partes.push(
         '',
-        'Os itens do combo formam uma coluna alinhada dentro de um bloco tratado, com'
-        + ' marcador ou separador entre eles e espaçamento constante. Nunca soltos sobre'
-        + ' a foto e nunca encostados no selo de preço.',
+        'Os itens do combo formam uma coluna alinhada, cada um com um ícone simples à'
+        + ' esquerda (o próprio item: lanche, bebida, porção) e separador entre eles.'
+        + ' Nunca soltos sobre a foto e nunca encostados no selo de preço.',
       )
     }
 
